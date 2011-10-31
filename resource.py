@@ -16,9 +16,6 @@ from .response import *
 from . import mimeparse
 
 
-HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE']
-
-
 class Resource(object):
     """Handle access to a resource specified by the template URL path.
     Container for the method function implementations.
@@ -30,7 +27,7 @@ class Resource(object):
         self._descr = descr
         self.methods = dict()
         for key, instance in methods.items():
-            if key not in HTTP_METHODS:
+            if key not in utils.HTTP_METHODS:
                 raise ValueError("invalid HTTP method '%s'" % key)
             if not callable(instance):
                 raise ValueError("HTTP method '%s' instance not callable" % key)

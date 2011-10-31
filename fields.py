@@ -41,8 +41,10 @@ class Field(object):
         Raise ValueError if invalid.
         """
         try:
-            return self.converter(request.fields[self.name].value)
-        except (KeyError, AttributeError):
+            value = request.get_value(self.name)
+            if value is None: raise KeyError
+            return self.converter(value)
+        except KeyError:
             if self.default is not None:
                 return self.default
             if self.required:
@@ -76,8 +78,10 @@ class CheckboxField(Field):
         Raise ValueError if invalid.
         """
         try:
-            return self.converter(request.fields[self.name].value)
-        except (KeyError, AttributeError):
+            value = self.converter(request.get_value(self.name))
+            if value is None: raise KeyError
+            return value
+        except KeyError:
             if self.default is not None:
                 return self.default
             return False
@@ -120,7 +124,9 @@ class IntegerField(Field):
     type = 'integer'
 
     def converter(self, value):
-        return int(value.strip())
+        if isinstance(value, basestring):
+            value = value.strip()
+        return int(value)
 
 
 class FloatField(Field):
@@ -129,7 +135,9 @@ class FloatField(Field):
     type = 'float'
 
     def converter(self, value):
-        return float(value.strip())
+        if isinstance(value, basestring):
+            value = value.strip()
+        return float(value)
 
 
 class TextField(Field):
@@ -162,23 +170,9 @@ class TextField(Field):
 
 
 class FileField(Field):
-    "File upload field."
+    "File upload field; file content returned as value."
 
     type = 'file'
-
-    def get_value(self, request):
-        """Return the value converted to Python representation.
-        Raise ValueError if invalid.
-        """
-        try:
-            field = request.fields[self.name]
-            if not field.file: raise AttributeError
-            return field.value
-        except (KeyError, AttributeError):
-            if self.default is not None:
-                return self.default
-            if self.required:
-                raise ValueError(self.name)
 
 
 class SelectField(Field):
@@ -186,19 +180,19 @@ class SelectField(Field):
 
     type = 'select'
 
-    def __init__(self, name, title=None, choices=[], default=[], required=False,
+    def __init__(self, name, title=None, options=[], default=[], required=False,
                  check=True, descr=None):
         super(SelectField, self).__init__(name,
                                           title=title,
                                           required=required,
                                           default=default,
                                           descr=descr)
-        self.choices = choices
+        self.options = options
         self.check = check
 
     def get_data(self, default=None, fill=dict()):
         result = super(SelectField, self).get_data(default=default, fill=fill)
-        result['choices'] = self.choices or fill.get('choices', [])
+        result['options'] = self.options or fill.get('options', [])
         return result
 
     def converter(self, value):
@@ -208,14 +202,14 @@ class SelectField(Field):
             if value is None:
                 raise ValueError('no value selected')
         if self.check:
-            choices = set()
-            for choice in self.choices:
-                if isinstance(choice, dict):
-                    choices.add(choice['value'])
+            options = set()
+            for option in self.options:
+                if isinstance(option, dict):
+                    options.add(option['value'])
                 else:
-                    choices.add(choice)
-            if not value in choices:
-                raise ValueError("value '%s' not among %s" % (value, choices))
+                    options.add(option)
+            if not value in options:
+                raise ValueError("value '%s' not among %s" % (value, options))
         return value
 
 
@@ -229,26 +223,29 @@ class MultiSelectField(SelectField):
         Raise ValueError if invalid.
         """
         try:
-            return self.converter(request.fields.getlist(self.name))
-        except (KeyError, AttributeError):
+            value = request.get_value(self.name)
+            if not value: raise KeyError
+            return self.converter(value)
+        except KeyError:
             return self.default
 
     def converter(self, values):
-        values = map(str, values)
         if self.required:
             if not values:
                 raise ValueError('no value selected')
+        if isinstance(values, basestring):
+            values = [values]
+        values = map(str, values)
         if self.check:
-            choices = set()
-            for choice in self.choices:
-                if isinstance(choice, dict):
-                    choices.add(choice['value'])
+            options = set()
+            for option in self.options:
+                if isinstance(option, dict):
+                    options.add(option['value'])
                 else:
-                    choices.add(choice)
+                    options.add(option)
             for value in values:
-                if not value in choices:
-                    raise ValueError("value '%s' not a choice %s" %
-                                     (value, choices))
+                if not value in options:
+                    raise ValueError("value '%s' not an option" % value)
         return values
 
 

@@ -8,6 +8,7 @@ import traceback
 import wsgiref.util
 import wsgiref.headers
 import cgi
+import json
 import Cookie
 
 from .response import *
@@ -114,25 +115,28 @@ class Request(object):
                 self.headers[key[5:]] = str(self.environ[key])
         # Obtain the SimpleCookie instance for the request.
         self.cookie = Cookie.SimpleCookie(self.environ.get('HTTP_COOKIE'))
-        # Parse the input according to HTTP request method
+        # Input: Handle according to content type and HTTP request method
         self.content_type = None
         self.content_type_params = dict()
-        self.fields = cgi.FieldStorage()
-        self.data = None
-        try:
-            parser = getattr(self, "parse_%s_input" % self.http_method)
-        except AttributeError:
-            pass
-        else:
-            parser()
-        try:
-            override = self.fields['http_method'].value
-            override = override.strip()
-            if not override: raise KeyError
-        except KeyError:
-            pass
-        else:
-            self.http_method = override
+        self.fields = cgi.FieldStorage() # Input parsed into CGI fields
+        self.json = None                 # Input after JSON decoding
+        self.data = None                 # Input as raw data
+        if self.http_method == 'GET':
+            self.handle_cgi_input()
+        elif self.http_method == 'POST':
+            self.handle_typed_input()
+            # Allow override of HTTP method
+            try:
+                http_method = self.get_value('http_method')
+                if not isinstance(http_method, basestring): raise KeyError
+                http_method = http_method.strip()
+                if not http_method: raise KeyError
+            except KeyError:
+                pass
+            else:
+                self.http_method = http_method
+        elif self.http_method == 'PUT':
+            self.handle_typed_input()
 
     def is_human_user_agent(self):
         "Guess whether the user agent represents a human, i.e. a browser."
@@ -146,32 +150,40 @@ class Request(object):
                     return True
         return False
 
-    def parse_GET_input(self):
+    def handle_cgi_input(self):
         self.fields = cgi.FieldStorage(environ=self.environ)
 
-    def parse_POST_input(self):
+    def handle_typed_input(self):
         try:
             content_type = self.environ['CONTENT_TYPE']
         except KeyError:
-            pass
+            return
+        content_type = mimeparse.parse_mime_type(content_type)
+        self.content_type = "%s/%s" % content_type[0:2]
+        self.content_type_params = content_type[2]
+        if self.content_type in ('application/x-www-form-urlencoded',
+                                 'multipart/form-data'):
+            self.fields = cgi.FieldStorage(fp=self.environ['wsgi.input'],
+                                           environ=self.environ)
+        elif self.content_type == 'application/json':
+            try:
+                self.json = json.loads(self.environ['wsgi.input'].read())
+            except ValueError:
+                raise HTTP_BAD_REQUEST('invalid JSON')
         else:
-            content_type = mimeparse.parse_mime_type(content_type)
-            self.content_type = "%s/%s" % content_type[0:2]
-            self.content_type_params = content_type[2]
-            if self.content_type in ('application/x-www-form-urlencoded',
-                                     'multipart/form-data'):
-                self.fields = cgi.FieldStorage(fp=self.environ['wsgi.input'],
-                                               environ=self.environ)
-            else:
-                self.data = self.environ['wsgi.input'].read()
-
-    def parse_PUT_input(self):
-        try:
-            content_type = self.environ['CONTENT_TYPE']
-        except KeyError:
-            pass
-        else:
-            content_type = mimeparse.parse_mime_type(content_type)
-            self.content_type = "%s/%s" % content_type[0:2]
-            self.content_type_params = content_type[2]
             self.data = self.environ['wsgi.input'].read()
+
+    def get_value(self, name):
+        """Return the input item value by name.
+        If input is CGI, FieldStorage.getvalue() is used;
+        this returns None if the named field does not exist.
+        If input is JSON, then uses ordinary dictionary lookup;
+        an exception will be raised if the data is not a dictionary.
+        If input is of some other type, raise KeyError.
+        """
+        if self.fields:
+            return self.fields.getvalue(name)
+        elif self.json:
+            return self.json[name]
+        else:
+            raise KeyError('no named input items')

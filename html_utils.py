@@ -85,32 +85,32 @@ ELEMENT_LOOKUP['text'] = get_element_text
 
 
 def get_element_select(field, current=None):
-    options = []
-    for choice in field['choices']:
-        if isinstance(choice, dict):
-            value = choice['value']
-            title = choice.get('title') or value
+    elems = []
+    for option in field['options']:
+        if isinstance(option, dict):
+            value = option['value']
+            title = option.get('title') or value
         else:
-            value = title = choice
-        options.append(OPTION(title, value=value,
+            value = title = option
+        elems.append(OPTION(title, value=value,
                             selected=value==current or None))
-    return SELECT(name=field['name'], *options)
+    return SELECT(name=field['name'], *elems)
 ELEMENT_LOOKUP['select'] = get_element_select
 
 
 def get_element_multiselect(field, current=None):
     if not current: current = []
-    options = []
-    for choice in field['choices']:
-        if isinstance(choice, dict):
-            value = choice['value']
-            title = choice.get('title') or value
+    elems = []
+    for option in field['options']:
+        if isinstance(option, dict):
+            value = option['value']
+            title = option.get('title') or value
         else:
-            value = title = choice
-        options.append(DIV(INPUT(type='checkbox',
-                                 name=field['name'],
-                                 value=value,
-                                 checked=value in current),
-                           title))
-    return DIV(*options)
+            value = title = option
+        elems.append(DIV(INPUT(type='checkbox',
+                               name=field['name'],
+                               value=value,
+                               checked=value in current),
+                         title))
+    return DIV(*elems)
 ELEMENT_LOOKUP['multiselect'] = get_element_multiselect

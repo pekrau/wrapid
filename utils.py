@@ -8,6 +8,9 @@ import base64
 from .response import HTTP_UNAUTHORIZED_BASIC_CHALLENGE
 
 
+HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE']
+
+
 def basic_authentication(request, realm):
     """Return the user and password provided in the request.
     Raise the appropriate HTTP status if not provided.
