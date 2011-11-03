@@ -1,4 +1,4 @@
-"""wrapid: Web Resource Application Programming Interface built on Python WSGI.
+""" wrapid: Web Resource Application Programming Interface built on Python WSGI.
 
 Input field classes, for query of form parameter input.
 """

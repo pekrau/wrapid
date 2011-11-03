@@ -1,4 +1,4 @@
-"""wrapid: Web Resource Application Programming Interface built on Python WSGI.
+""" wrapid: Web Resource Application Programming Interface built on Python WSGI.
 
 Handle access to a resource specified by the template URL path.
 Resource, request method and output representation classes.

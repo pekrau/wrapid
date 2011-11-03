@@ -1,4 +1,4 @@
-"""wrapid: Web Resource Application Programming Interface built on Python WSGI.
+""" wrapid: Web Resource Application Programming Interface built on Python WSGI.
 
 Produce the documentation for this web application by introspection.
 """
@@ -13,66 +13,8 @@ from HyperText.HTML40 import *
 from . import utils
 from .resource import *
 from .fields import *
-
-
-class JsonRepresentation(Representation):
-    "JSON representation of documentation."
-
-    mimetype = 'application/json'
-    format = 'json'
-
-    def __call__(self, data):
-        response = HTTP_OK(content_type=self.mimetype)
-        response.append(json.dumps(data, indent=2))
-        return response
-
-
-class TextRepresentation(Representation):
-    "Text representation of documentation using Python 'pprint'."
-
-    mimetype = 'text/plain'
-    format = 'txt'
-
-    def __call__(self, data):
-        response = HTTP_OK(content_type=self.mimetype)
-        response.append(pprint.pformat(data))
-        return response
-
-
-class RstRepresentation(Representation):
-    "ReStructured Text." # XXX incomplete! Currently not used.
-
-    mimetype = 'text/x-rst'
-    format = 'rst'
-
-    def __call__(self, data):
-        response = HTTP_OK(content_type=self.mimetype)
-        title = data['documentation']['application']
-        version = data['documentation']['version']
-        if version:
-            title += ', ' + version
-        response.append(title)
-        response.append('\n')
-        response.append("%s\n\n" % ('=' * len(title)))
-        response.append(data['documentation']['href'])
-        response.append('\n')
-        response.append("%s\n\n" % ('+' * len(data['documentation']['href'])))
-        for resource in data['resources']:
-            title = "%(title)s: %(href)s\n" % resource
-            response.append(title)
-            response.append("%s\n\n" % ('+' * len(title)))
-            response.append("%(descr)s\n" % resource)
-            for name in utils.HTTP_METHODS:
-                try:
-                    method = resource['methods'][name]
-                except KeyError:
-                    pass
-                else:
-                    response.append("\n%s\n" % name)
-                    response.append("%s\n\n" % ('-' * len(name)))
-                    response.append("%s\n" % method['descr'])
-            response.append('\n')
-        return response
+from .json_representation import JsonRepresentation
+from .text_representation import TextRepresentation
 
 
 class HtmlRepresentation(Representation):
@@ -198,7 +140,6 @@ class GET_Documentation(GET):
         super(GET_Documentation, self).__init__(
             outreprs=[JsonRepresentation(),
                       TextRepresentation(),
-                      ## RstRepresentation(), # incomplete!
                       HtmlRepresentation(css_href=css_href,
                                          css_class=css_class)],
             infields=Fields(
