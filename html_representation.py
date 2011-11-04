@@ -3,16 +3,14 @@
 Base class for standard HTML representation of data.
 """
 
-import urllib
-
 import markdown
 from HyperText.HTML40 import *
 
 from wrapid.resource import *
 
 
-class HtmlRepresentation(Representation):
-    "HTML representation of the resource."
+class BaseHtmlRepresentation(Representation):
+    "Base HTML representation of the resource."
 
     mimetype = 'text/html'
     format = 'html'
