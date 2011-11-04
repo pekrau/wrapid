@@ -63,7 +63,9 @@ class HtmlRepresentation(Representation):
                    klass=self.css_class),
                  P("This resource in other formats: %s." %
                    ', '.join([str(A("%(title)s (%(mimetype)s)" % r,
-                                    href=r['href'])) for r in data['outreprs']]),
+                                    href=r['href']))
+                              for r in data['outreprs']
+                              if r['mimetype'] != 'text/html']),
                    klass=self.css_class),
                  H2(data['documentation']['href'], klass=self.css_class)]
         rows = [TR(TH('Resource'),
