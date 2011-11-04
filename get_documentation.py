@@ -40,11 +40,41 @@ class HtmlRepresentation(Representation):
         if self.css_href:
             if urlparse.urlsplit(self.css_href)[1]: # Absolute URL
                 css_href = self.css_href
-            else:                       # Relative URL
+            else:                                   # Relative URL; to absolute
                 base = data['documentation']['href'].rstrip('/') + '/'
                 relative = self.css_href.lstrip('/')
                 css_href = urlparse.urljoin(base, relative)
             items.append(LINK(rel='stylesheet', href=css_href, type='text/css'))
+        else:
+            items.append(STYLE("""
+<!--
+.wrapid-doc {font-family: Arial, Helvetica, sans-serif;
+	     font-size: small; }
+h1.wrapid-doc {font-size: x-large;
+               margin-left: 3em; }
+h2.wrapid-doc {font-size: large;
+               margin-left: 2em; }
+h3.wrapid-doc {font-size: small;
+               margin-left: 1em; }
+h4.wrapid-doc {font-size: small;
+               margin-left: 0em; }
+table.wrapid-doc {margin-top: 0.5em;
+		  margin-bottom: 0.5em; }
+table.wrapid-doc caption {padding-left: 2em;
+			  margin-bottom: 0.25em;
+			  text-align: left;
+			  font-weight: bold; }
+table.wrapid-doc tr th {border-width: 2px;
+			border-top-style: solid;
+			border-bottom-style: solid;
+			padding-left: 0.5em;
+                        text-align: left; }
+table.wrapid-doc tr td {border-width: 1px;
+			border-bottom-style: solid;
+			padding-left: 0.5em; }
+-->
+""",
+                               type='text/css'))
         head = HEAD(*items)
 
         elems = [H1(title, klass=self.css_class),

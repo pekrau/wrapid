@@ -114,6 +114,6 @@ application.append(Resource('/factory', name='Factory',
                             descr='Dummy to show POST method documentation.'))
 
 application.append(Resource('/doc', name='Documentation',
-                            GET=GET_Documentation(css_href='/static/wrapid-doc.css'),
+                            GET=GET_Documentation(),
                             descr='Produce documentation of the API for'
                             ' this web resource by introspection.'))
