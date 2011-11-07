@@ -10,6 +10,7 @@ import wsgiref.headers
 import cgi
 import json
 import Cookie
+import urlparse
 
 from .response import *
 from . import mimeparse
@@ -36,6 +37,7 @@ class Application(object):
     def __call__(self, environ, start_response):
         "WSGI interface; this method is called for each HTTP request."
         self.url = wsgiref.util.application_uri(environ)
+        self.path = urlparse.urlparse(self.url).path or '/'
         request = self.get_request(environ)
         logging.debug("wrapid: HTTP method '%s', URL path '%s'",
                       request.http_method,
@@ -89,7 +91,7 @@ class Application(object):
         """Synthesize an absolute URL from the application URL
         and the given path segments and query.
         """
-        url = '/'.join([self.url] + list(segments))
+        url = '/'.join([self.url] + [str(s) for s in segments])
         if query:
             url += '?' + urllib.urlencode(query)
         return str(url)
@@ -115,6 +117,7 @@ class Request(object):
                 self.headers[key[5:]] = str(self.environ[key])
         # Obtain the SimpleCookie instance for the request.
         self.cookie = Cookie.SimpleCookie(self.environ.get('HTTP_COOKIE'))
+        logging.debug("wrapid: cookie %s", self.cookie)
         # Input: Handle according to content type and HTTP request method
         self.content_type = None
         self.content_type_params = dict()
