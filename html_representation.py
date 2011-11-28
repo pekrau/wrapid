@@ -3,8 +3,22 @@
 Base class for standard HTML representation of data.
 """
 
-import markdown
+import logging
+import cgi
+
 from HyperText.HTML40 import *
+
+try:
+    import markdown
+    def markdown_to_html(text):
+        if text:
+            return markdown.markdown(text, output_format='html4')
+        else:
+            return ''
+except ImportError:                     # Fallback
+    def markdown_to_html(text):
+        return PRE(text)
+
 
 from wrapid.resource import *
 
@@ -15,20 +29,28 @@ class BaseHtmlRepresentation(Representation):
     mimetype = 'text/html'
     format = 'html'
     scripts = []
+    icons = dict()
 
     def __call__(self, data):
         self.data = data
+        self.prepare()
         html = HTML(self.get_head(),
                     BODY(TABLE(TR(TD(TABLE(TR(TD(self.get_logo())),
                                            TR(TD(self.get_navigation()))),
-                                     width='5%'),
-                                  TD(H1(self.get_title()),
-                                     DIV(self.get_description()),
-                                     DIV(self.get_content())),
+                                     klass='body_left'),
+                                  TD(H1(self.get_title(), klass='title'),
+                                     DIV(self.get_description(),
+                                         klass='description'),
+                                     DIV(self.get_content(),
+                                         klass='content'),
+                                     klass='body_middle'),
                                   TD(TABLE(TR(TD(self.get_login())),
+                                           TR(TD(self.get_info())),
                                            TR(TD(self.get_operations())),
                                            TR(TD(self.get_metadata())),
-                                           TR(TD(self.get_outreprs()))))),
+                                           TR(TD(self.get_outreprs())),
+                                           style='float: right;'),
+                                     klass='body_right')),
                                width='100%'),
                          HR(),
                          self.get_footer(),
@@ -36,6 +58,10 @@ class BaseHtmlRepresentation(Representation):
         response = HTTP_OK(**self.get_http_headers())
         response.append(str(html))
         return response
+
+    def prepare(self):
+        "Pre-processing before generating the HTML."
+        pass
 
     def get_head(self):
         return HEAD(TITLE(self.get_title()),
@@ -52,18 +78,13 @@ class BaseHtmlRepresentation(Representation):
                  href=self.data['application']['href'])
 
     def get_description(self):
-        try:
-            descr = self.data['descr']
-        except KeyError:
-            return ''
-        else:
-            return markdown.markdown(descr, output_format='html4')
+        return markdown_to_html(self.data.get('descr'))
 
     def get_content(self):
         return ''
 
     def get_operations(self):
-        rows = []
+        table = TABLE()
         for operation in self.data.get('operations', []):
             method = operation.get('method', 'GET')
             jscode = None
@@ -80,22 +101,29 @@ class BaseHtmlRepresentation(Representation):
                 method = 'POST'
             else:
                 override = ''
-            rows.append(TR(TD(FORM(INPUT(type='submit',
-                                         value=operation['title'],
-                                         onclick=jscode),
-                                   override,
-                                   method=method,
-                                   action=operation['href']))))
-        return TABLE(*rows)
+            table.append(TR(TD(FORM(self.get_submit(operation['title'],
+                                                    onclick=jscode),
+                                    override,
+                                    method=method,
+                                    action=operation['href']))))
+        return table
 
-    def get_metadata(self):
-        return ''
-
-    def get_login(self):
-        return ''
+    def get_submit(self, title, onclick=None):
+        "Get the button for submit."
+        try:
+            icon = self.icons[title.split()[0].lower()]
+        except KeyError:
+            return INPUT(type='submit',
+                         value=title,
+                         onclick=onclick)
+        else:
+            return BUTTON(icon,
+                          SPAN(' ', title, style='vertical-align: middle;'),
+                          type='submit',
+                          onclick=onclick)
 
     def get_navigation(self):
-        rows = []
+        table = TABLE(klass='navigation')
         current = None
         items = []
         for link in self.data.get('links', []):
@@ -104,21 +132,31 @@ class BaseHtmlRepresentation(Representation):
                 family, name = title.split(':', 1)
             except ValueError:
                 if items:
-                    rows.append(TR(TD(family, UL(*items))))
+                    table.append(TR(TD(family, UL(*items))))
                     items = []
-                rows.append(TR(TD(A(title, href=link['href']))))
+                table.append(TR(TD(A(title, href=link['href']))))
             else:
                 items.append(LI(A(name, href=link['href'])))
         if items:
-            rows.append(TR(TD(family, UL(*items))))
-        return TABLE(klass='navigation', *rows)
+            table.append(TR(TD(family, UL(*items))))
+        return table
+
+    def get_login(self):
+        return ''
+
+    def get_info(self):
+        return ''
+
+    def get_metadata(self):
+        return ''
 
     def get_outreprs(self):
-        rows = []
+        table = TABLE(TR(TH('Alternative representations')),
+                      klass='representations')
         for link in self.data.get('outreprs', []):
             if link['title'] == 'HTML': continue # Skip itself
-            rows.append(TR(TD(A(link['title'], href=link['href']))))
-        return TABLE(klass='navigation', *rows)
+            table.append(TR(TD(A(link['title'], href=link['href']))))
+        return table
 
     def get_footer(self):
         application = self.data['application']
@@ -146,26 +184,44 @@ class BaseHtmlRepresentation(Representation):
         """Return a FORM element for editing the fields,
         which are dictionaries representing subclasses of Field.
         """
-        rows = []
+        table = TABLE(klass=klass)
         multipart = False
         for field in fields:
+            if field['type'] == 'hidden': continue
             try:
                 func = funcs[field['name']]
             except KeyError:
                 func = ELEMENT_LOOKUP[field['type']]
             multipart = multipart or field['type'] == 'file'
+            try:
+                current = values[field['name']]
+            except KeyError:
+                current = field.get('default')
+            title = field.get('title')
+            if title is None:           # Allow empty string as title
+                title = field['name']
+            table.append(TR(TH(title),
+                            TD(field.get('required') and required or ''),
+                            TD(func(field, current=current)),
+                            TD(I(field.get('descr') or ''))))
+        hidden = []
+        for field in fields:
+            if field['type'] != 'hidden': continue
             current = values.get(field['name']) or field.get('default')
-            rows.append(TR(TH(field.get('title') or field['name']),
-                           TD(field.get('required') and required or ''),
-                           TD(func(field, current=current)),
-                           TD(I(field.get('descr') or ''))))
+            func = ELEMENT_LOOKUP['hidden']
+            hidden.append(func(field, current=current))
         return FORM(FIELDSET(LEGEND(legend),
-                             TABLE(klass=klass, *rows),
-                             P(INPUT(type='submit', value=submit))),
+                            table,
+                            DIV(*hidden),
+                            P(self.get_submit(submit))),
                     enctype=multipart and 'multipart/form-data'
                             or 'application/x-www-form-urlencoded',
                     method='POST',
                     action=action)
+
+    def escape_text(self, text):
+        "Return text after escaping for '&', '>' and '<' characters."
+        return cgi.escape(text)
 
 
 ELEMENT_LOOKUP = dict()
@@ -190,7 +246,6 @@ class Input(object):
                 kwargs[self.translations.get(key, key)] = item
         if current is not None:
             kwargs['value'] = current
-        logging.debug("field %s %s", field['name'], kwargs)
         return INPUT(type=self.type, name=field['name'], **kwargs)
 
 ELEMENT_LOOKUP['string'] = Input('text', length=20, maxlength=100)
@@ -198,6 +253,26 @@ ELEMENT_LOOKUP['password'] = Input('password', length=20, maxlength=100)
 ELEMENT_LOOKUP['integer'] = Input('text', length=10, maxlength=40)
 ELEMENT_LOOKUP['float'] = Input('text', length=20, maxlength=100)
 ELEMENT_LOOKUP['file'] = Input('file', length=20, maxlength=100)
+ELEMENT_LOOKUP['hidden'] = Input('hidden')
+
+def get_element_boolean(field, current=None):
+    if current is not None:
+        if current:
+            check_true = True
+            check_false = False
+        else:
+            check_true = False
+            check_false = True
+    else:
+        check_true = False
+        check_false = False
+    return TABLE(TR(TD(INPUT(type='radio', name=field['name'],
+                             value='true', checked=check_true),
+                       ' true '),
+                    TD(INPUT(type='radio', name=field['name'],
+                             value='false', checked=check_false),
+                       ' false ')))
+ELEMENT_LOOKUP['boolean'] = get_element_boolean
 
 def get_element_checkbox(field, current=None):
     if current is not None:
@@ -219,15 +294,29 @@ ELEMENT_LOOKUP['text'] = get_element_text
 
 def get_element_select(field, current=None):
     elems = []
-    for option in field['options']:
-        if isinstance(option, dict):
-            value = option['value']
-            title = option.get('title') or value
-        else:
-            value = title = option
-        elems.append(OPTION(title, value=value,
-                            selected=value==current or None))
-    return SELECT(name=field['name'], *elems)
+    if field['boxes']:
+        for option in field['options']:
+            if isinstance(option, dict):
+                value = option['value']
+                title = option.get('title') or value
+            else:
+                value = title = option
+            elems.append(TR(TD(INPUT(type='radio',
+                                     name=field['name'],
+                                     value=value,
+                                     checked=value==current or None)),
+                            TD(" %s" % title)))
+        return TABLE(*elems)
+    else:
+        for option in field['options']:
+            if isinstance(option, dict):
+                value = option['value']
+                title = option.get('title') or value
+            else:
+                value = title = option
+            elems.append(OPTION(title, value=value,
+                                selected=value==current or None))
+        return SELECT(name=field['name'], *elems)
 ELEMENT_LOOKUP['select'] = get_element_select
 
 

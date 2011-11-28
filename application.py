@@ -46,7 +46,6 @@ class Application(object):
             resource = self.get_resource(request.urlpath)
             if resource is None:
                 raise HTTP_NOT_FOUND
-            logging.debug("wrapid: %s", resource)
             response = resource(request, self)
             return response(start_response)
         except HTTP_UNAUTHORIZED, error: # Do not log, nor give browser output
@@ -117,7 +116,6 @@ class Request(object):
                 self.headers[key[5:]] = str(self.environ[key])
         # Obtain the SimpleCookie instance for the request.
         self.cookie = Cookie.SimpleCookie(self.environ.get('HTTP_COOKIE'))
-        logging.debug("wrapid: cookie %s", self.cookie)
         # Input: Handle according to content type and HTTP request method
         self.content_type = None
         self.content_type_params = dict()
@@ -163,6 +161,7 @@ class Request(object):
             return
         content_type = mimeparse.parse_mime_type(content_type)
         self.content_type = "%s/%s" % content_type[0:2]
+        logging.debug("wrapid: incoming content type: %s", self.content_type)
         self.content_type_params = content_type[2]
         if self.content_type in ('application/x-www-form-urlencoded',
                                  'multipart/form-data'):

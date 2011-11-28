@@ -90,6 +90,16 @@ class CheckboxField(Field):
         return bool(value)
 
 
+class BooleanField(Field):
+    "Boolean field: choice between true or false."
+
+    type = 'boolean'
+
+    def converter(self, value):
+        value = value.lstrip()
+        return value and value[0].upper() in ('Y', 'T', '1')
+
+
 class StringField(Field):
     "String input field."
 
@@ -126,7 +136,10 @@ class IntegerField(Field):
     def converter(self, value):
         if isinstance(value, basestring):
             value = value.strip()
-        return int(value)
+        try:
+            return int(value)
+        except ValueError:
+            raise KeyError
 
 
 class FloatField(Field):
@@ -137,7 +150,10 @@ class FloatField(Field):
     def converter(self, value):
         if isinstance(value, basestring):
             value = value.strip()
-        return float(value)
+        try:
+            return float(value)
+        except ValueError:
+            raise KeyError
 
 
 class TextField(Field):
@@ -170,9 +186,18 @@ class TextField(Field):
 
 
 class FileField(Field):
-    "File upload field; file content returned as value."
+    "File upload field; file content returned as buffer value."
 
     type = 'file'
+
+    def converter(self, value):
+        return buffer(value)
+
+
+class HiddenField(Field):
+    "Hidden key-value field."
+
+    type = 'hidden'
 
 
 class SelectField(Field):
@@ -180,19 +205,21 @@ class SelectField(Field):
 
     type = 'select'
 
-    def __init__(self, name, title=None, options=[], default=[], required=False,
-                 check=True, descr=None):
+    def __init__(self, name, title=None, options=[], default=[], boxes=False,
+                 required=False, check=True, descr=None):
         super(SelectField, self).__init__(name,
                                           title=title,
                                           required=required,
                                           default=default,
                                           descr=descr)
         self.options = options
+        self.boxes = boxes
         self.check = check
 
     def get_data(self, default=None, fill=dict()):
         result = super(SelectField, self).get_data(default=default, fill=fill)
         result['options'] = self.options or fill.get('options', [])
+        result['boxes'] = self.boxes
         return result
 
     def converter(self, value):
@@ -280,6 +307,6 @@ class Fields(object):
             try:
                 result[field.name] = field.get_value(request)
             except ValueError, msg:
-                logging.error("wrapid: parsing field %s, %s", field.name, msg)
                 raise HTTP_BAD_REQUEST(str(msg))
+        logging.debug("parsed input fields %s", result)
         return result

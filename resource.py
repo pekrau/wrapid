@@ -143,6 +143,7 @@ class GET(Method):
         Use format or content negotiation using the Accept header
         to determine which outgoing representation to use.
         """
+        self.get_query(request)
         data = self.get_data(resource, request, application)
         if not self.outreprs:
             raise HTTP_NOT_ACCEPTABLE            
@@ -171,6 +172,13 @@ class GET(Method):
         # Fallback: choose the most desirable according to order
         return self.outreprs[-1](data)
 
+    def get_query(self, request):
+        "Parse the query data, if any."
+        if self.infields:
+            self.query = self.infields.parse(request)
+        else:
+            self.query = dict()
+
     def get_data(self, resource, request, application):
         """Return the data to display as a data structure
         for the response generator to interpret.
@@ -186,8 +194,15 @@ class GET(Method):
         for r in self.outreprs:
             result.append(dict(title=r.format.upper(),
                                mimetype=r.mimetype,
-                               href=url + '.' + r.format))
+                               href=url + '.' + r.format + self.get_encoded_query()))
         return result
+
+    def get_encoded_query(self):
+        "Return the URL-encoded query data, with '?' prepended, if any data."
+        if self.query:
+            return '?' + urllib.urlencode(self.query)
+        else:
+            return ''
 
 
 class POST(Method):
