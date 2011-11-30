@@ -12,12 +12,13 @@ try:
     import markdown
     def markdown_to_html(text):
         if text:
+            text = cgi.escape(text)
             return markdown.markdown(text, output_format='html4')
         else:
             return ''
 except ImportError:                     # Fallback
     def markdown_to_html(text):
-        return PRE(text)
+        return PRE(cgi.escape(text))
 
 
 from wrapid.resource import *
@@ -86,6 +87,9 @@ class BaseHtmlRepresentation(Representation):
     def get_operations(self):
         table = TABLE()
         for operation in self.data.get('operations', []):
+            if isinstance(operation, basestring):
+                table.append(TR(TD(operation, height=10)))
+                continue
             method = operation.get('method', 'GET')
             jscode = None
             if method == 'DELETE':
@@ -219,9 +223,12 @@ class BaseHtmlRepresentation(Representation):
                     method='POST',
                     action=action)
 
-    def escape_text(self, text):
+    def safe_text(self, text):
         "Return text after escaping for '&', '>' and '<' characters."
-        return cgi.escape(text)
+        if text:
+            return cgi.escape(text)
+        else:
+            return text
 
 
 ELEMENT_LOOKUP = dict()
