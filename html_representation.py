@@ -92,24 +92,27 @@ class BaseHtmlRepresentation(Representation):
                 continue
             method = operation.get('method', 'GET')
             jscode = None
+            fields = []
             if method == 'DELETE':
-                override = INPUT(type='hidden',
-                                 name='http_method',
-                                 value=method)
+                fields.append(INPUT(type='hidden',
+                                    name='http_method',
+                                    value=method))
                 method = 'POST'
                 jscode = "return confirm('Delete cannot be undone; really delete?');"
             elif method == 'PUT':
-                override = INPUT(type='hidden',
-                                 name='http_method',
-                                 value=method)
+                fields.append(INPUT(type='hidden',
+                                    name='http_method',
+                                    value=method))
                 method = 'POST'
-            else:
-                override = ''
+            for field in operation.get('fields', []):
+                fields.append(INPUT(type='hidden',
+                                    name=field['name'],
+                                    value=field['value']))
             table.append(TR(TD(FORM(self.get_submit(operation['title'],
                                                     onclick=jscode),
-                                    override,
                                     method=method,
-                                    action=operation['href']))))
+                                    action=operation['href'],
+                                    *fields))))
         return table
 
     def get_submit(self, title, onclick=None):
@@ -117,14 +120,20 @@ class BaseHtmlRepresentation(Representation):
         try:
             icon = self.icons[title.split()[0].lower()]
         except KeyError:
-            return INPUT(type='submit',
-                         value=title,
-                         onclick=onclick)
+            if onclick:
+                return INPUT(type='submit', value=title, onclick=onclick)
+            else:
+                return INPUT(type='submit', value=title)
         else:
-            return BUTTON(icon,
-                          SPAN(' ', title, style='vertical-align: middle;'),
-                          type='submit',
-                          onclick=onclick)
+            if onclick:
+                return BUTTON(icon,
+                              SPAN(' ', title, style='vertical-align: middle;'),
+                              type='submit',
+                              onclick=onclick)
+            else:
+                return BUTTON(icon,
+                              SPAN(' ', title, style='vertical-align: middle;'),
+                              type='submit')
 
     def get_navigation(self):
         table = TABLE(klass='navigation')
@@ -184,7 +193,7 @@ class BaseHtmlRepresentation(Representation):
     def get_form(self, fields, action,
                  values=dict(), funcs=dict(),
                  required='required', legend='',
-                 klass=None, submit='Submit'):
+                 klass=None, submit='Submit', method='POST'):
         """Return a FORM element for editing the fields,
         which are dictionaries representing subclasses of Field.
         """
@@ -220,7 +229,7 @@ class BaseHtmlRepresentation(Representation):
                             P(self.get_submit(submit))),
                     enctype=multipart and 'multipart/form-data'
                             or 'application/x-www-form-urlencoded',
-                    method='POST',
+                    method=method,
                     action=action)
 
     def safe_text(self, text):

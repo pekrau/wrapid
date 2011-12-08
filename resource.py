@@ -70,7 +70,6 @@ class Resource(object):
         match = self.urlpath_matcher.match(urlpath)
         if match:
             self.variables = match.groupdict()
-            logging.debug("wrapid: URL variables: %s", self.variables)
         else:
             self.variables = dict()
         return bool(match)

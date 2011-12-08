@@ -8,6 +8,7 @@ import traceback
 import wsgiref.util
 import wsgiref.headers
 import cgi
+import urllib
 import json
 import Cookie
 import urlparse
@@ -113,7 +114,8 @@ class Request(object):
         self.headers = wsgiref.headers.Headers([])
         for key in self.environ:
             if key.startswith('HTTP_'):
-                self.headers[key[5:]] = str(self.environ[key])
+                name = '-'.join([p.capitalize() for p in key[5:].split('_')])
+                self.headers[name] = str(self.environ[key])
         # Obtain the SimpleCookie instance for the request.
         self.cookie = Cookie.SimpleCookie(self.environ.get('HTTP_COOKIE'))
         # Input: Handle according to content type and HTTP request method

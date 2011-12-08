@@ -308,5 +308,4 @@ class Fields(object):
                 result[field.name] = field.get_value(request)
             except ValueError, msg:
                 raise HTTP_BAD_REQUEST(str(msg))
-        logging.debug("parsed input fields %s", result)
         return result
