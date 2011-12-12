@@ -28,7 +28,6 @@ class Response(Exception):
         self.headers[key] = value
 
     def __call__(self, start_response):
-        logging.debug("wrapid: Response %s", self)
         start_response(str(self), self.headers.items())
         return self
 
@@ -78,7 +77,7 @@ class HTTP_TEMPORARY_REDIRECT(HTTP_REDIRECTION):
 class HTTP_ERROR(Response):
 
     def __call__(self, start_response):
-        logging.debug("wrapid: Response %s", self)
+        logging.debug("wrapid: HTTP ERROR %s", self)
         start_response(str(self), self.headers.items(), sys.exc_info())
         return self
 
