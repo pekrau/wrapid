@@ -142,16 +142,21 @@ class BaseHtmlRepresentation(Representation):
         for link in self.data.get('links', []):
             title = link['title']
             try:
-                family, name = title.split(':', 1)
+                section, name = title.split(':', 1)
             except ValueError:
                 if items:
-                    table.append(TR(TD(family, UL(*items))))
+                    table.append(TR(TD(UL(*items))))
                     items = []
                 table.append(TR(TD(A(title, href=link['href']))))
             else:
+                if current != section:
+                    if current:
+                        table.append(TR(TD(current, UL(*items))))
+                    items = []
+                    current = section
                 items.append(LI(A(name, href=link['href'])))
         if items:
-            table.append(TR(TD(family, UL(*items))))
+            table.append(TR(TD(current, UL(*items))))
         return table
 
     def get_login(self):
@@ -164,10 +169,12 @@ class BaseHtmlRepresentation(Representation):
         return ''
 
     def get_outreprs(self):
+        outreprs = self.data.get('outreprs', [])
+        outreprs = [o for o in outreprs if o['title'] != 'HTML'] # Skip itself
+        if not outreprs: return ''
         table = TABLE(TR(TH('Alternative representations')),
                       klass='representations')
-        for link in self.data.get('outreprs', []):
-            if link['title'] == 'HTML': continue # Skip itself
+        for link in outreprs:
             table.append(TR(TD(A(link['title'], href=link['href']))))
         return table
 

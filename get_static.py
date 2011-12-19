@@ -6,8 +6,14 @@ Access to static files in a predetermined directory on the server.
 import logging
 import os.path
 import mimetypes
+import time
 
 from .resource import *
+
+
+DATETIME_FORMAT     = '%a, %d %b %Y %H:%M:%S'
+DATETIME_GMT_FORMAT = DATETIME_FORMAT + ' GMT'
+DATETIME_TZ_FORMAT  = DATETIME_FORMAT + ' %Z'
 
 
 class GET_Static(Method):
@@ -33,6 +39,12 @@ class GET_Static(Method):
             filename += format
         filename = os.path.basename(filename) # Security
         filename = os.path.join(self.dirpath, filename)
+        mtime = os.path.getmtime(filename)
+        mod_file = time.strftime(DATETIME_GMT_FORMAT, time.gmtime(mtime))
+        mod_since = request.headers['If-Modified-Since']
+        if mod_since == mod_file:       # Don't bother comparing '<'.
+            logging.debug("HTTP Not Modified")
+            raise HTTP_NOT_MODIFIED
         try:
             ext = os.path.splitext(filename)[1].lstrip('.')
             mimetype = self.MIMETYPES[ext]
@@ -43,6 +55,7 @@ class GET_Static(Method):
         headers = wsgiref.headers.Headers([('Content-Type', mimetype)])
         if self.cache_control:
             headers.add_header('Cache-Control', self.cache_control)
+        headers.add_header('Last-Modified', mod_file)
         response = HTTP_OK(**dict(headers))
         try:
             infile = open(filename)

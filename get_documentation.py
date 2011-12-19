@@ -80,7 +80,8 @@ table.wrapid-doc tr td {border-width: 1px;
         elems = [H1(title, klass=self.css_class),
                  P('This document describes the application programming'
                    ' interface (API) for this web resource. It is produced'
-                   ' by introspection of the source code.',
+                   ' automatically by a procedure that performs introspection'
+                   ' on the Python source code of the application.',
                    klass=self.css_class),
                  P('The fundamental idea is that the set of URLs defining the'
                    ' API is identical to the URLs used by the human user'
@@ -124,14 +125,30 @@ table.wrapid-doc tr td {border-width: 1px;
                         TR(TH('Parameter'),
                            TH('Required'),
                            TH('Type'),
+                           TH('Options'),
                            TH('Default'),
                            TH('Description'))]
                 infields = method.get('infields', [])
                 for field in infields:
+                    try:
+                        options = field['options']
+                        if not options: raise KeyError
+                    except KeyError:
+                        options = '-'
+                    else:
+                        if isinstance(options[0], dict):
+                            options = [TR(TH('Value'), TH('Title'))] + \
+                                      [TR(TD(o['value']),
+                                          TD(o.get('title', '-')))
+                                       for o in options]
+                        else:
+                            options = [TR(TD(o)) for o in options]
+                        options = TABLE(klass='wrapid-doc', *options)
                     rows.append(TR(TD(field['name']),
                                    TD(field['required'] and 'yes' or 'no'),
                                    TD(field['type']),
-                                   TD(str(field['default'])),
+                                   TD(options),
+                                   TD(str(field['default'] or None)),
                                    TD(field['descr'])))
                 if len(rows) > 2:
                     elems.append(TABLE(klass=self.css_class, *rows))
@@ -142,10 +159,16 @@ table.wrapid-doc tr td {border-width: 1px;
                 if infields and name == 'POST':
                     rows.append(TR(TD('application/x-www-form-urlencoded'),
                                    TD('URL-encoded form data parsed into'
-                                      ' input fields; see above.')))
+                                      ' input fields; see above.'
+                                      ' Does not allow file upload.')))
                     rows.append(TR(TD('multipart/form-data'),
                                    TD('Form data parsed into input form'
-                                      ' fields; see above.')))
+                                      ' fields; see above.'
+                                      ' Allows file upload.')))
+                    rows.append(TR(TD('application/json'),
+                                   TD('JSON-encoded form data parsed into'
+                                      ' input fields; see above.'
+                                      ' Does not allow file upload.')))
                 for inrepr in method.get('inreprs', []):
                     rows.append(TR(TD(inrepr['mimetype']),
                                    TD(inrepr['descr'])))
@@ -252,7 +275,6 @@ class GET_Documentation(GET):
                         pass
                 else:
                     for outrepr in outreprs:
-                        logging.debug("wrapid: outrepr %s", outrepr)
                         rdata.append(dict(mimetype=outrepr.mimetype,
                                           format=outrepr.format,
                                           descr=outrepr.descr()))

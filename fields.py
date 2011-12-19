@@ -7,6 +7,8 @@ import logging
 
 from .response import HTTP_BAD_REQUEST
 
+FIELD_LOOKUP = dict()                   # Key: type, value: class
+
 
 class Field(object):
     "Abstract input field."
@@ -54,6 +56,12 @@ class Field(object):
         return value
 
 
+def _add(klass):
+    assert issubclass(klass, Field)
+    assert klass.type
+    FIELD_LOOKUP[klass.type] = klass
+
+
 class CheckboxField(Field):
     "Simple checkbox field, yielding a boolean value."
 
@@ -89,6 +97,8 @@ class CheckboxField(Field):
     def converter(self, value):
         return bool(value)
 
+_add(CheckboxField)
+
 
 class BooleanField(Field):
     "Boolean field: choice between true or false."
@@ -98,6 +108,8 @@ class BooleanField(Field):
     def converter(self, value):
         value = value.lstrip()
         return value and value[0].upper() in ('Y', 'T', '1')
+
+_add(BooleanField)
 
 
 class StringField(Field):
@@ -121,11 +133,15 @@ class StringField(Field):
         result['maxlength'] = self.maxlength
         return result
 
+_add(StringField)
+
 
 class PasswordField(StringField):
     "Password input field."
 
     type = 'password'
+
+_add(PasswordField)
 
 
 class IntegerField(Field):
@@ -141,6 +157,8 @@ class IntegerField(Field):
         except ValueError:
             raise KeyError
 
+_add(IntegerField)
+
 
 class FloatField(Field):
     "Float input field."
@@ -154,6 +172,8 @@ class FloatField(Field):
             return float(value)
         except ValueError:
             raise KeyError
+
+_add(FloatField)
 
 
 class TextField(Field):
@@ -184,6 +204,8 @@ class TextField(Field):
             value = value.replace('\r\n', '\n').strip()
         return value
 
+_add(TextField)
+
 
 class FileField(Field):
     "File upload field; file content returned as buffer value."
@@ -193,11 +215,15 @@ class FileField(Field):
     def converter(self, value):
         return buffer(value)
 
+_add(FileField)
+
 
 class HiddenField(Field):
     "Hidden key-value field."
 
     type = 'hidden'
+
+_add(HiddenField)
 
 
 class SelectField(Field):
@@ -239,11 +265,13 @@ class SelectField(Field):
                 raise ValueError("value '%s' not among %s" % (value, options))
         return value
 
+_add(SelectField)
+
 
 class MultiSelectField(SelectField):
     "Select multiple items from a given list."
 
-    type ='multiselect'
+    type = 'multiselect'
 
     def get_value(self, request):
         """Return the value converted to Python representation.
@@ -274,6 +302,8 @@ class MultiSelectField(SelectField):
                 if not value in options:
                     raise ValueError("value '%s' not an option" % value)
         return values
+
+_add(MultiSelectField)
 
 
 class Fields(object):
