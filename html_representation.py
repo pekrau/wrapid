@@ -65,11 +65,25 @@ class BaseHtmlRepresentation(Representation):
         pass
 
     def get_head(self):
-        return HEAD(TITLE(self.get_title()),
+        head = HEAD(TITLE(self.get_title()),
                     META(http_equiv='Content-Type',
                          content='text/html; charset=utf-8'),
                     META(http_equiv='Content-Script-Type',
                          content='application/javascript'))
+        for stylesheet in self.get_stylesheets():
+            head.append(stylesheet)
+        favicon = self.get_favicon()
+        if favicon:
+            head.append(favicon)
+        return head
+
+    def get_stylesheets(self):
+        "To be reimplemented in a subclass."
+        return []
+
+    def get_favicon(self):
+        "To be reimplemented in a subclass."
+        return None
 
     def get_title(self):
         return self.data['title']
