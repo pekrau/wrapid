@@ -8,7 +8,7 @@ import os.path
 
 logging.basicConfig(level=logging.DEBUG)
 
-
+from wrapid import __version__
 from wrapid.application import Application
 from wrapid.resource import *
 from wrapid.fields import *
@@ -95,7 +95,9 @@ def debug(resource, request, application):
 debug.mimetype = 'text/plain'
 
 
-application = Application(name='wrapid example', version='1.0', debug=True)
+application = Application(name='wrapid example',
+                          version=__version__,
+                          debug=True)
 
 application.append(Resource('/', name='Root', GET=root))
 application.append(Resource('/login', name='Login', GET=login))

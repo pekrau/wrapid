@@ -74,6 +74,8 @@ class Resource(object):
             self.variables = dict()
         return bool(match)
 
+    _RX_VARIABLE = re.compile(r'\{([^/\}]+)\}')
+
     def set_urlpath_template(self, urlpath_template):
         "Set the URL path template and the compiled regexp."
         self.urlpath_template = urlpath_template
@@ -86,11 +88,23 @@ class Resource(object):
         pattern = "^%s$" % pattern
         self.urlpath_matcher = re.compile(pattern)
 
-    _RX_VARIABLE = re.compile(r'\{([^/\}]+)\}')
-
     @staticmethod
     def _replace_variable(match):
-        return "(?P<%s>[^/]+?)" % match.group(1)
+        variable = match.group(1)
+        try:
+            variable, type = variable.split(':')
+        except ValueError:
+            expression = r'[^/]+?'
+        else:
+            if type == 'uuid':          # UUID with or without dashes
+                expression = r'(?:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})|(?:[a-f0-9]{32})'
+            elif type == 'identifier':  # Identifier: alphabetical + word
+                expression = r'[a-zA-Z_]\w*'
+            elif type == 'integer':
+                expression = r'[-+]?\d+'
+            else:
+                raise ValueError("unknown type in template variable: %s" % type)
+        return "(?P<%s>%s)" % (variable, expression)
 
     def get_url(self, *segments, **query):
         """Synthesize an absolute URL from the resource URL
