@@ -54,7 +54,6 @@ class Application(object):
         except HTTP_REDIRECTION, error:
             return error(start_response)
         except HTTP_ERROR, error:
-            logging.debug("wrapid: HTTP error: %s", error)
             if request.human_user_agent:
                 response = HTTP_OK(content_type='text/plain')
                 response.append("%s\n\n%s" % (error, ''.join(error.content)))

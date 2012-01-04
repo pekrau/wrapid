@@ -60,7 +60,7 @@ class GET_Static(Method):
         try:
             infile = open(filename)
         except IOError, msg:
-            logging.error("wrapid: static not found: %s", msg)
+            logging.error("wrapid: static file not found: %s", msg)
             raise HTTP_NOT_FOUND
         else:
             response.append(infile.read())
