@@ -1,6 +1,9 @@
 """ wrapid: Web Resource Application Programming Interface built on Python WSGI.
 
-To do:
+To do
+=====
+
+- tests_example.py
 - return 415 Unsupported Media Type for wrong inrepr
 - use html_representation for get_documentation?
 - authorization: part of Method? to allow documenting it

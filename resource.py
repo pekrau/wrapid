@@ -11,9 +11,9 @@ import cgi
 import wsgiref.util
 import wsgiref.headers
 
-from . import utils
 from .response import *
 from . import mimeparse
+from .utils import HTTP_METHODS
 
 
 class Resource(object):
@@ -27,7 +27,7 @@ class Resource(object):
         self._descr = descr
         self.methods = dict()
         for key, instance in methods.items():
-            if key not in utils.HTTP_METHODS:
+            if key not in HTTP_METHODS:
                 raise ValueError("invalid HTTP method '%s'" % key)
             if not callable(instance):
                 raise ValueError("HTTP method '%s' instance not callable" % key)

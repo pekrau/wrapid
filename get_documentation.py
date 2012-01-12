@@ -10,9 +10,9 @@ import urlparse
 
 from HyperText.HTML40 import *
 
-from . import utils
 from .resource import *
 from .fields import *
+from .utils import HTTP_METHODS
 from .json_representation import JsonRepresentation
 from .text_representation import TextRepresentation
 
@@ -113,7 +113,7 @@ table.wrapid-doc tr td {border-width: 1px;
             title = "%(title)s: %(href)s" % resource
             elems.append(H2(A(title, id=title), klass=self.css_class))
             elems.append(P(resource['descr'], klass=self.css_class))
-            for name in utils.HTTP_METHODS:
+            for name in HTTP_METHODS:
                 try:
                     method = resource['methods'][name]
                 except KeyError:
@@ -228,7 +228,7 @@ class GET_Documentation(GET):
                                 href=res.urlpath_template,
                                 descr=res.descr())
             methoddata = resourcedata.setdefault('methods', dict())
-            for name in utils.HTTP_METHODS:
+            for name in HTTP_METHODS:
                 try:
                     method = res.methods[name]
                 except KeyError:
