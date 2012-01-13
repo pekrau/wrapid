@@ -194,15 +194,18 @@ class BaseHtmlRepresentation(Representation):
 
     def get_footer(self):
         application = self.data['application']
-        host = application['host']
-        return TABLE(TR(TD("%(name)s %(version)s" % application,
-                           style='width:33%;'),
-                        TD(A(host.get('title') or host['href'],
-                             href=host['href']),
-                           style='width:33%; text-align:center;'),
-                        TD("%(contact)s (%(email)s)" % host,
-                           style='width:33%;text-align:right;')),
-                     width='100%')
+        row = TR(TD("%(name)s %(version)s" % application, style='width:33%;'))
+        try:
+            host = application['host']
+        except KeyError:
+            row.append(TR(TD(style='width:67%')))
+        else:
+            row.append(TD(A(host.get('title') or host['href'],
+                            href=host['href']),
+                          style='width:33%; text-align:center;'),
+                       TD("%(contact)s (%(email)s)" % host,
+                          style='width:34%;text-align:right;'))
+        return TABLE(row, width='100%')
 
     def get_scripts(self):
         result = DIV()

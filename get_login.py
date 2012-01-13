@@ -26,7 +26,7 @@ class GET_Login(Method):
             raise HTTP_UNAUTHORIZED_BASIC_CHALLENGE(realm=self.realm)
         else:
             try:
-                url = request.get_value('url')
+                url = request.get_value('href')
                 if not url: raise KeyError
             except KeyError:
                 url = application.url

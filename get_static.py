@@ -38,18 +38,22 @@ class GET_Static(Method):
         if format:
             filename += format
         filename = os.path.basename(filename) # Security
-        filename = os.path.join(self.dirpath, filename)
-        mtime = os.path.getmtime(filename)
+        filepath = os.path.join(self.dirpath, filename)
+        if not os.path.exists(filepath):
+            raise HTTP_NOT_FOUND
+        if not os.path.isfile(filepath):
+            raise HTTP_NOT_FOUND
+        mtime = os.path.getmtime(filepath)
         mod_file = time.strftime(DATETIME_GMT_FORMAT, time.gmtime(mtime))
         mod_since = request.headers['If-Modified-Since']
         if mod_since == mod_file:       # Don't bother comparing '<'.
             logging.debug("HTTP Not Modified")
             raise HTTP_NOT_MODIFIED
         try:
-            ext = os.path.splitext(filename)[1].lstrip('.')
+            ext = os.path.splitext(filepath)[1].lstrip('.')
             mimetype = self.MIMETYPES[ext]
         except KeyError:
-            mimetype = mimetypes.guess_type(filename)[0]
+            mimetype = mimetypes.guess_type(filepath)[0]
             if not mimetype:
                 mimetype = 'application/octet-stream'
         headers = wsgiref.headers.Headers([('Content-Type', mimetype)])
@@ -58,7 +62,7 @@ class GET_Static(Method):
         headers.add_header('Last-Modified', mod_file)
         response = HTTP_OK(**dict(headers))
         try:
-            infile = open(filename)
+            infile = open(filepath)
         except IOError, msg:
             logging.error("wrapid: static file not found: %s", msg)
             raise HTTP_NOT_FOUND
