@@ -21,7 +21,8 @@ except ImportError:                     # Fallback
         return PRE(cgi.escape(text))
 
 
-from wrapid.resource import *
+from wrapid.response import *
+from wrapid.resource import Representation
 
 
 class BaseHtmlRepresentation(Representation):
@@ -40,10 +41,8 @@ class BaseHtmlRepresentation(Representation):
                                            TR(TD(self.get_navigation()))),
                                      klass='body_left'),
                                   TD(H1(self.get_title(), klass='title'),
-                                     DIV(self.get_description(),
-                                         klass='description'),
-                                     DIV(self.get_content(),
-                                         klass='content'),
+                                     DIV(self.get_descr(), klass='description'),
+                                     DIV(self.get_content(), klass='content'),
                                      klass='body_middle'),
                                   TD(TABLE(TR(TD(self.get_login())),
                                            TR(TD(self.get_info())),
@@ -92,7 +91,7 @@ class BaseHtmlRepresentation(Representation):
         return A(SPAN('wrapid', style='font-size: xx-large; color: green;'),
                  href=self.data['application']['href'])
 
-    def get_description(self):
+    def get_descr(self):
         return markdown_to_html(self.data.get('descr'))
 
     def get_content(self):
@@ -194,17 +193,21 @@ class BaseHtmlRepresentation(Representation):
 
     def get_footer(self):
         application = self.data['application']
-        row = TR(TD("%(name)s %(version)s" % application, style='width:33%;'))
+        row = TR(TD("%(name)s %(version)s" % application, style='width:34%;'))
         try:
             host = application['host']
         except KeyError:
             row.append(TR(TD(style='width:67%')))
         else:
+            contact = host.get('contact', '')
+            try:
+                contact += " (%s)" % host['email']
+            except KeyError:
+                pass
             row.append(TD(A(host.get('title') or host['href'],
                             href=host['href']),
                           style='width:33%; text-align:center;'),
-                       TD("%(contact)s (%(email)s)" % host,
-                          style='width:34%;text-align:right;'))
+                       TD(contact, style='width:33%;text-align:right;'))
         return TABLE(row, width='100%')
 
     def get_scripts(self):
@@ -214,8 +217,7 @@ class BaseHtmlRepresentation(Representation):
                                  src=self.get_url('static', script)))
         return result
 
-    def get_form(self, fields, action,
-                 values=dict(), funcs=dict(),
+    def get_form(self, fields, action, values=dict(),
                  required='required', legend='',
                  klass=None, submit='Submit', method='POST'):
         """Return a FORM element for editing the fields,
@@ -225,10 +227,6 @@ class BaseHtmlRepresentation(Representation):
         multipart = False
         for field in fields:
             if field['type'] == 'hidden': continue
-            try:
-                func = funcs[field['name']]
-            except KeyError:
-                func = ELEMENT_LOOKUP[field['type']]
             multipart = multipart or field['type'] == 'file'
             try:
                 current = values[field['name']]
@@ -237,16 +235,20 @@ class BaseHtmlRepresentation(Representation):
             title = field.get('title')
             if title is None:           # Allow empty string as title
                 title = field['name']
+            try:
+                panel = self.get_form_field_panel(field, current=current)
+            except KeyError:
+                panel = ELEMENT_LOOKUP[field['type']](field, current=current)
             table.append(TR(TH(title),
                             TD(field.get('required') and required or ''),
-                            TD(func(field, current=current)),
+                            TD(panel),
                             TD(I(field.get('descr') or ''))))
         hidden = []
+        element = ELEMENT_LOOKUP['hidden']
         for field in fields:
             if field['type'] != 'hidden': continue
             current = values.get(field['name']) or field.get('default')
-            func = ELEMENT_LOOKUP['hidden']
-            hidden.append(func(field, current=current))
+            hidden.append(element(field, current=current))
         return FORM(FIELDSET(LEGEND(legend),
                             table,
                             DIV(*hidden),
@@ -255,6 +257,13 @@ class BaseHtmlRepresentation(Representation):
                             or 'application/x-www-form-urlencoded',
                     method=method,
                     action=action)
+
+    def get_form_field_panel(self, field, current=None):
+        """Return a custom panel for the given field.
+        Raise KeyError if no custom panel defined for the field;
+        the ELEMENT_LOOKUP will then be used instead.
+        """
+        raise KeyError
 
     def safe_text(self, text):
         "Return text after escaping for '&', '>' and '<' characters."

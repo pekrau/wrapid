@@ -9,16 +9,12 @@ import mimetypes
 import time
 
 from .resource import *
+from .utils import DATETIME_WEB_FORMAT
 
 
-DATETIME_FORMAT     = '%a, %d %b %Y %H:%M:%S'
-DATETIME_GMT_FORMAT = DATETIME_FORMAT + ' GMT'
-DATETIME_TZ_FORMAT  = DATETIME_FORMAT + ' %Z'
-
-
-class GET_Static(Method):
-    """Return the specified static file. The mimetype of the response
-    is determined by the extension of the file name.
+class GET_Static(GET):
+    """Return the specified static file from a predefined server directory.
+    The mimetype of the response is determined by the file name extension.
     """
 
     # Missing mimetypes, or overrides over those in mimetypes module
@@ -28,9 +24,6 @@ class GET_Static(Method):
         super(GET_Static, self).__init__(descr=descr)
         self.dirpath = dirpath
         self.cache_control = cache_control
-        self.outreprs = [DummyRepresentation('*/*',
-                                             'The mimetype is inferred from'
-                                             ' the file name extension.')]
 
     def __call__(self, resource, request, application):
         filename = resource.variables['filename']
@@ -44,7 +37,7 @@ class GET_Static(Method):
         if not os.path.isfile(filepath):
             raise HTTP_NOT_FOUND
         mtime = os.path.getmtime(filepath)
-        mod_file = time.strftime(DATETIME_GMT_FORMAT, time.gmtime(mtime))
+        mod_file = time.strftime(DATETIME_WEB_FORMAT, time.gmtime(mtime))
         mod_since = request.headers['If-Modified-Since']
         if mod_since == mod_file:       # Don't bother comparing '<'.
             logging.debug("HTTP Not Modified")

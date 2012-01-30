@@ -25,15 +25,15 @@ class Application(object):
     this class for all HTTP requests to the relevant URLs.
     """
 
-    def __init__(self, name=None, version=None, debug=False):
-        self._name = name
-        self.version = version
-        self.debug = debug
+    version = 'x'
+    debug   = False
+
+    def __init__(self):
         self.resources = []
 
     @property
     def name(self):
-        return self._name or self.__class__.__name__
+        return self.__class__.__name__
 
     def __call__(self, environ, start_response):
         "WSGI interface; this method is called for each HTTP request."

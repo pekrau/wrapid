@@ -10,9 +10,11 @@ import urlparse
 
 from HyperText.HTML40 import *
 
-from .resource import *
 from .fields import *
 from .utils import HTTP_METHODS
+from .response import *
+from .resource import (Representation, GET, FieldsMethodMixin,
+                       InreprsMethodMixin, OutreprsMethodMixin)
 from .json_representation import JsonRepresentation
 from .text_representation import TextRepresentation
 
@@ -22,11 +24,8 @@ class HtmlRepresentation(Representation):
 
     mimetype = 'text/html'
     format = 'html'
-
-    def __init__(self, css_href=None, css_class='wrapid-doc', descr=None):
-        super(HtmlRepresentation, self).__init__(descr=descr)
-        self.css_href = css_href
-        self.css_class = css_class
+    css_href = None
+    css_class = 'wrapid-doc'
 
     def __call__(self, data):
         title = data['documentation']['application']
@@ -91,26 +90,24 @@ table.wrapid-doc tr td {border-width: 1px;
                    ' for programmatic user agents. The representations contain'
                    ' the same logical data, including the description of links,'
                    ' forms and representations.',
-                   klass=self.css_class),
-                 P("This resource in other formats: %s." %
-                   ', '.join([str(A("%(title)s (%(mimetype)s)" % r,
-                                    href=r['href']))
-                              for r in data['outreprs']
-                              if r['mimetype'] != 'text/html']),
-                   klass=self.css_class),
-                 H2(data['documentation']['href'], klass=self.css_class)]
+                   klass=self.css_class)]
+        others = [A("%(title)s (%(mimetype)s)" % r, href=r['href'])
+                  for r in data['outreprs'] if r['mimetype'] != 'text/html']
+        others = map(str, others)
+        elems.append(P("This resource in other formats: %s." %', '.join(others),
+                       klass=self.css_class))
+        elems.append(H2(data['documentation']['href'], klass=self.css_class))
         rows = [TR(TH('Resource'),
                    TH('URL'),
                    TH('Description'))]
         for resource in data['resources']:
-            title = resource['title']
-            href = "#%(title)s: %(href)s" % resource
-            rows.append(TR(TD(A(title, href=href)),
+            rows.append(TR(TD(A(resource['resource'],
+                                href="#%(resource)s: %(href)s" % resource)),
                            TD(resource['href']),
                            TD(resource.get('descr'))))
         elems.append(TABLE(klass=self.css_class, *rows))
         for resource in data['resources']:
-            title = "%(title)s: %(href)s" % resource
+            title = "%(resource)s: %(href)s" % resource
             elems.append(H2(A(title, id=title), klass=self.css_class))
             elems.append(P(resource['descr'], klass=self.css_class))
             for name in HTTP_METHODS:
@@ -128,8 +125,8 @@ table.wrapid-doc tr td {border-width: 1px;
                            TH('Options'),
                            TH('Default'),
                            TH('Description'))]
-                infields = method.get('infields', [])
-                for field in infields:
+                fields = method.get('fields', [])
+                for field in fields:
                     try:
                         options = field['options']
                         if not options: raise KeyError
@@ -156,7 +153,7 @@ table.wrapid-doc tr td {border-width: 1px;
                 rows = [CAPTION('Input representations'),
                         TR(TH('Mimetype'),
                            TH('Description'))]
-                if infields and name == 'POST':
+                if fields and name == 'POST':
                     rows.append(TR(TD('application/x-www-form-urlencoded'),
                                    TD('URL-encoded form data parsed into'
                                       ' input fields; see above.'
@@ -177,9 +174,11 @@ table.wrapid-doc tr td {border-width: 1px;
 
                 rows = [CAPTION('Output representations'),
                         TR(TH('Mimetype'),
+                           TH('Format'),
                            TH('Description'))]
                 for outrepr in method.get('outreprs', []):
                     rows.append(TR(TD(outrepr['mimetype']),
+                                   TD(outrepr['format']),
                                    TD(outrepr['descr'])))
                 if len(rows) > 2:
                     elems.append(TABLE(klass=self.css_class, *rows))
@@ -189,44 +188,37 @@ table.wrapid-doc tr td {border-width: 1px;
 
 
 class GET_Documentation(GET):
-    "Return the documentation."
+    """Produce this documentation of the web API
+    by introspection of the source code.
+    """
 
-    def __init__(self, css_href=None, css_class='wrapid-doc'):
-        super(GET_Documentation, self).__init__(
-            outreprs=[JsonRepresentation(),
-                      TextRepresentation(),
-                      HtmlRepresentation(css_href=css_href,
-                                         css_class=css_class)],
-            infields=Fields(
-                StringField('resource',
-                            descr='Resource to output documentation for.')),
-            descr=self.__doc__)
+    fields = (StringField('resource',
+                          descr='Resource to output documentation for.'),)
+
+    outreprs = (JsonRepresentation,
+                TextRepresentation,
+                HtmlRepresentation)
 
     def get_data(self, resource, request, application):
         """Return the data to display as a data structure
         for the response generator to interpret.
         """
-        values = self.infields.parse(request)
+        values = self.parse_fields(request)
         resources = []
-        data = dict(entity='documentation',
+        data = dict(resource='Documentation',
                     documentation=dict(application=application.name,
                                        version=application.version,
                                        href=application.url),
                     href=resource.url,
-                    outreprs=self.get_outreprs_links(resource,
-                                                     request,
-                                                     application),
+                    outreprs=self.get_outrepr_links(resource, application),
                     resources=resources)
-        try:
-            resource_name = values.get('resource')
-        except AttributeError:
-            resource_name = None
+        resource_type = values.get('resource')
         for res in application.resources:
-            if resource_name is not None and resource_name != res.name:
+            if resource_type is not None and resource_type != res.type:
                 continue
-            resourcedata = dict(title=res.name,
+            resourcedata = dict(resource=res.type,
                                 href=res.urlpath_template,
-                                descr=res.descr())
+                                descr=res.descr)
             methoddata = resourcedata.setdefault('methods', dict())
             for name in HTTP_METHODS:
                 try:
@@ -234,51 +226,36 @@ class GET_Documentation(GET):
                 except KeyError:
                     continue
                 try:
-                    descr = method.descr()
+                    descr = method.descr
                 except (TypeError, AttributeError):
                     descr = method.__doc__ or None
                 methoddata[name] = dict(descr=descr)
+
                 # Input fields: query parameters or form fields
-                try:
-                    fields = list(method.infields)
-                except (AttributeError, TypeError):
-                    pass
-                else:
-                    methoddata[name]['infields'] = [f.get_data()
-                                                    for f in fields]
+                if isinstance(method, FieldsMethodMixin):
+                    fields = list(method.fields)
+                    methoddata[name]['fields'] = [f.get_data() for f in fields]
+
                 # Input representations
-                rdata = []
-                try:
+                if isinstance(method, InreprsMethodMixin):
+                    rdata = []
                     inreprs = list(method.inreprs)
-                except AttributeError:
-                    try:
-                        rdata.append(dict(mimetype=method.mimetype,
-                                          descr=None))
-                    except AttributeError:
-                        pass
-                else:
-                    for outrepr in inreprs:
-                        rdata.append(dict(mimetype=outrepr.mimetype,
-                                          format=outrepr.format,
-                                          descr=outrepr.descr()))
-                if rdata:
+                    for inrepr in inreprs:
+                        rdata.append(dict(mimetype=inrepr.mimetype,
+                                          format=inrepr.format,
+                                          descr=inrepr.__doc__))
+                    if rdata:
                         methoddata[name]['inreprs'] = rdata
+
                 # Output representations
-                rdata = []
-                try:
+                if isinstance(method, OutreprsMethodMixin):
+                    rdata = []
                     outreprs = list(method.outreprs)
-                except AttributeError:
-                    try:
-                        rdata.append(dict(mimetype=method.mimetype,
-                                          descr=None))
-                    except AttributeError:
-                        pass
-                else:
                     for outrepr in outreprs:
                         rdata.append(dict(mimetype=outrepr.mimetype,
                                           format=outrepr.format,
-                                          descr=outrepr.descr()))
-                if rdata:
+                                          descr=outrepr.__doc__))
+                    if rdata:
                         methoddata[name]['outreprs'] = rdata
             resources.append(resourcedata)
         return data

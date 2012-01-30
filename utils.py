@@ -4,12 +4,20 @@ Various utility functions.
 """
 
 import base64
+import time
+import hashlib
 
 from .response import HTTP_UNAUTHORIZED_BASIC_CHALLENGE
 
 
-HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE']
+HTTP_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 
+DATETIME_ISO_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
+DATETIME_WEB_FORMAT = '%a, %d %b %Y %H:%M:%S GMT'
+
+
+def now(format=DATETIME_ISO_FORMAT):
+    return time.strftime(format, time.gmtime())
 
 def basic_authentication(request, realm, require=True):
     """Return the user and password provided in the request.
@@ -32,8 +40,8 @@ def basic_authentication(request, realm, require=True):
 def identify_account(variables, get_account):
     """Return the account dictionary given the 'variables' lookup,
     which is assumed to contain an item 'account'.
-    The function 'get_account' takes an account name and returns
-    the account dictionary **without any authentication**.
+    The 'get_account' argument is a function which takes an account name
+    and returns the account dictionary **without any authentication**.
     It must raise KeyError if there is no such account.
     This handles the case where an account name containing a dot and
     a short (<=4 chars) last name, which will otherwise be confused
@@ -45,22 +53,22 @@ def identify_account(variables, get_account):
     except KeyError:
         if variables.get('FORMAT'):
             name = variables['account'] + variables['FORMAT']
-            try:
-                result = get_account(name)
-            except KeyError:
-                raise
-            else:
-                variables['account'] += variables['FORMAT']
-                variables['FORMAT'] = None
+            result = get_account(name)
+            variables['account'] += variables['FORMAT']
+            variables['FORMAT'] = None
         else:
             raise
     return result
 
 def get_account_basic_authentication(request, realm, get_account):
     """Return the account dictionary given basic authentication data
-    in the request. If none (and none available according to the cookie),
-    then return the account 'anonymous'.
-    Raise KeyError if no account found.
+    in the request. The argument 'get_account' is a function that takes
+    an account name and optionally a password, and returns a dictionary
+    describing the account.
+    If none (and none available according to the cookie), then return
+    the account 'anonymous'.
+    Raise KeyError if no such account.
+    Raise ValueError if incorrect password.
     """
     try:
         name, password = basic_authentication(request, realm, require=False)
@@ -71,9 +79,30 @@ def get_account_basic_authentication(request, realm, get_account):
         # seem to be sent voluntarily by the browser.
         if request.cookie.has_key("%s-login" % realm):
             raise HTTP_UNAUTHORIZED_BASIC_CHALLENGE(realm=realm)
-        return get_account('anonymous')
-    else:
-        try:
-            return get_account(name, password)
-        except (KeyError, ValueError):
+        else:
             return get_account('anonymous')
+    else:
+        return get_account(name, password)
+
+def get_password_hexdigest(password, salt=''):
+    "Return the MD5 hex digest of the password combined with the salt."
+    md5 = hashlib.md5()
+    md5.update(salt)
+    md5.update(password)
+    return md5.hexdigest()
+
+def rstr(value):
+    "Return str of unicode value, else same, recursively."
+    if value is None:
+        return None
+    elif isinstance(value, unicode):
+        return str(value)
+    elif isinstance(value, list):
+        return map(rstr, value)
+    elif isinstance(value, set):
+        return set(map(rstr, value))
+    elif isinstance(value, dict):
+        return dict([(rstr(key), rstr(value))
+                     for key, value in value.iteritems()])
+    else:
+        return value

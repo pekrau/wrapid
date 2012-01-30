@@ -8,17 +8,16 @@ import os.path
 
 logging.basicConfig(level=logging.DEBUG)
 
-from wrapid import __version__
+import wrapid
 from wrapid.application import Application
 from wrapid.resource import *
-from wrapid.fields import *
 from wrapid.response import *
 from wrapid.utils import basic_authentication
 from wrapid.get_documentation import GET_Documentation
 from wrapid.get_static import GET_Static
 
 
-def root(resource, request, application):
+def home(resource, request, application):
     "Home page for the web application."
     response = HTTP_OK(content_type='text/html')
     lookup = dict(baseurl=application.url,
@@ -64,7 +63,7 @@ This site can also be viewed at <a href="%(scilifelab)s">SciLifeLab</a>.
 </html>
 """ % lookup)
     return response
-root.mimetype = 'text/html'
+home.mimetype = 'text/html'
 
 def login(resource, request, application):
     "Require user name and password."
@@ -78,7 +77,7 @@ def crash(resource, request, application):
     "Force an internal server error."
     response = HTTP_OK(content_type='text/plain')
     response.append('This is a forced crash.\n')
-    raise ValueError('blah')
+    raise ValueError('explicitly forced error')
 
 def debug(resource, request, application):
     "Return information about the request data provided to the server."
@@ -95,27 +94,32 @@ def debug(resource, request, application):
 debug.mimetype = 'text/plain'
 
 
-application = Application(name='wrapid example',
-                          version=__version__,
-                          debug=True)
+class Factory(POST):
+    "Here POST method documentation should go."
 
-application.append(Resource('/', name='Root', GET=root))
-application.append(Resource('/login', name='Login', GET=login))
-application.append(Resource('/crash', name='Crash', GET=crash))
-application.append(Resource('/debug', name='Debug', GET=debug))
+    fields = (TextField('thing',
+                        required=True,
+                        descr='Thing to make.'),)
+
+
+class WrapidExample(Application):
+    version = wrapid.__version__
+    debug   = True
+
+application = WrapidExample()
+
+application.append(Resource('/', type='Home', GET=home))
+application.append(Resource('/login', type='Login', GET=login))
+application.append(Resource('/crash', type='Crash', GET=crash))
+application.append(Resource('/debug', type='Debug', GET=debug))
 
 static_dirpath = os.path.join(os.path.dirname(__file__), 'static')
-application.append(Resource('/static/{filename}', name='Static file',
+application.append(Resource('/static/{filename}', type='File',
                             GET=GET_Static(static_dirpath)))
 
-application.append(Resource('/factory', name='Factory',
-                            POST=POST(infields=Fields(
-                                TextField('thing',
-                                          required=True,
-                                          descr='Thing to make.'))),
-                            descr='Dummy to show POST method documentation.'))
+application.append(Resource('/factory', type='Factory', POST=Factory))
 
-application.append(Resource('/doc', name='Documentation',
+application.append(Resource('/doc', type='Documentation',
                             GET=GET_Documentation(),
                             descr='Produce documentation of the API for'
                             ' this web resource by introspection.'))

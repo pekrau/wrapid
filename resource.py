@@ -1,7 +1,16 @@
 """ wrapid: Web Resource Application Programming Interface built on Python WSGI.
 
 Handle access to a resource specified by the template URL path.
-Resource, request method and output representation classes.
+Resource, method and representation classes.
+
+Methods subclass capabilities:
+
+        fields    inrepr    outrepr
+GET       yes       no        yes
+HEAD      yes       no        no
+POST      yes       yes       yes
+PUT       no        yes       no
+DELETE    no        no        no
 """
 
 import logging
@@ -11,6 +20,7 @@ import cgi
 import wsgiref.util
 import wsgiref.headers
 
+from .fields import *
 from .response import *
 from . import mimeparse
 from .utils import HTTP_METHODS
@@ -21,9 +31,9 @@ class Resource(object):
     Container for the method function implementations.
     """
 
-    def __init__(self, urlpath_template, name=None, descr=None, **methods):
+    def __init__(self, urlpath_template, type=None, descr=None, **methods):
         self.set_urlpath_template(urlpath_template)
-        self._name = name
+        self._type = type
         self._descr = descr
         self.methods = dict()
         for key, instance in methods.items():
@@ -34,9 +44,10 @@ class Resource(object):
             self.methods[key] = instance
 
     @property
-    def name(self):
-        return self._name or self.__class__.__name__
+    def type(self):
+        return self._type or self.__class__.__name__
 
+    @property
     def descr(self):
         if self._descr:
             return self._descr
@@ -45,13 +56,10 @@ class Resource(object):
         except KeyError:
             return self.__doc__
         else:
-            try:
-                return get.descr()
-            except (TypeError, AttributeError):
-                return get.__doc__
+            return get.descr
 
     def __str__(self):
-        return "%s(%s)" % (self.name, self.urlpath_template)
+        return "%s(%s)" % (self.type, self.urlpath_template)
 
     def __call__(self, request, application):
         self.url = wsgiref.util.request_uri(request.environ,include_query=False)
@@ -61,7 +69,11 @@ class Resource(object):
         try:
             method = self.methods[request.http_method]
         except KeyError:
-            raise HTTP_METHOD_NOT_ALLOWED(allow=','.join(self.methods.keys()))
+            allow = ','.join(self.methods.keys())
+            if request.http_method == 'OPTIONS':
+                return HTTP_NO_CONTENT(Allow=allow)
+            else:
+                raise HTTP_METHOD_NOT_ALLOWED(Allow=allow)
         else:
             return method(self, request, application)
 
@@ -117,13 +129,14 @@ class Resource(object):
 
 
 class Method(object):
-    """Base abstract class for executing the HTTP request method on a resource.
-    A call on an instance must return a response instance.
+    """HTTP request method base class.
+    An instance is callable, returning a response instance.
     """
 
     def __init__(self, descr=None):
         self._descr = descr
 
+    @property
     def descr(self):
         if self._descr:
             return self._descr
@@ -132,45 +145,116 @@ class Method(object):
 
     def __call__(self, resource, request, application):
         "Handle the request and return a response instance."
+        self.prepare(resource, request, application)
+        try:
+            self.handle(resource, request, application)
+            return self.get_response(resource, request, application)
+        finally:
+            self.finalize()
+
+    def prepare(self, resource, request, application):
+        """Perform preparatory actions, e.g. login, or database connect.
+        No actions by default.
+        """
+        pass
+
+    def handle(self, resource, request, application):
+        """Handle the request; perform actions according to the request.
+        No actions by default.
+        """
+        pass
+
+    def get_response(self, resource, request, application):
+        "Return the response instance."
         raise NotImplementedError
 
-    def get_outreprs_links(self, resource, request, application):
-        "Return dictionaries for links to all outreprs for the resource."
-        return None
-
-
-class GET(Method):
-    "HTTP request method GET."
-
-    def __init__(self, outreprs=[], infields=None, descr=None):
-        """At least one output representation must be specified.
-        The 'infields' argument must be a Fields instance.
+    def finalize(self):
+        """Perform finalization, e.g. database close.
+        No actions by default.
         """
-        super(GET, self).__init__(descr=descr)
-        self.outreprs = outreprs[:]
-        self.infields = infields
+        pass
 
-    def __call__(self, resource, request, application):
-        """Handle the request and return a response instance.
-        Retrieve the data to display, and create the response from it.
-        Use format or content negotiation using the Accept header
-        to determine which outgoing representation to use.
+
+class FieldsMethodMixin(object):
+    "Mixin class providing field handling methods."
+
+    fields = ()
+    
+    def get_fields_data(self, fields=None, skip=set(),
+                        default=dict(), fill=dict()):
+        """Return the data for the fields to go into
+        the 'form' entry of the resource data dictionary.
+        If no fields are passed as argument, then use the fields
+        defined at class level.
         """
-        self.get_query(request)
+        fields = fields or self.fields
+        result = []
+        for field in fields:
+            if field.name in skip: continue
+            result.append(field.get_data(default=default.get(field.name),
+                                         fill=fill.get(field.name, dict())))
+        return result
+
+    def parse_fields(self, request, fields=None, skip=set()):
+        """Return a dictionary containing the values for
+        the input fields parsed out from the request.
+        If no fields are passed as argument, then use the fields
+        defined at class level.
+        Raise HTTP_BAD_REQUEST if any problem.
+        """
+        fields = fields or self.fields
+        result = dict()
+        for field in fields:
+            if field.name in skip: continue
+            try:
+                result[field.name] = field.get_value(request)
+            except ValueError, msg:
+                raise HTTP_BAD_REQUEST(str(msg))
+        return result
+
+
+class InreprsMethodMixin(object):
+    "Mixin class providing incoming representation methods."
+
+    inreprs = ()                      # List of Representation classes
+
+
+class OutreprsMethodMixin(object):
+    "Mixin class providing outgoing representation methods."
+
+    outreprs = ()                     # List of Representation classes
+
+    def get_response(self, resource, request, application):
+        """Return the response instance.
+        First, collect the data required for the representation.
+        Then, decide which representation to use.
+        Last, return the response from the representation given the data.
+        """
         data = self.get_data(resource, request, application)
+        outrepr = self.get_outrepr(resource, request, application)
+        return outrepr(data)
+
+    def get_data(self, resource, request, application):
+        "Return a dictionary containing the data for the response."
+        raise NotImplementedError
+
+    def get_outrepr(self, resource, request, application):
+        """Return the outgoing representation instance.
+        Uses format or content negotiation using the Accept header
+        to determine which outgoing representation to use.
+        At least one outgoing representation must be defined.
+        """
         if not self.outreprs:
             raise HTTP_NOT_ACCEPTABLE            
-
         # Hard request for output representation
         format = resource.variables.get('FORMAT')
         if format:
             format = format.lstrip('.')
             for outrepr in self.outreprs:
                 if format == outrepr.format:
-                    return outrepr(data)
+                    return outrepr()
             else:
                 raise HTTP_NOT_ACCEPTABLE
-
         # Output representation content negotiation
         accept = request.headers['Accept']
         if accept:
@@ -180,65 +264,39 @@ class GET(Method):
                 raise HTTP_NOT_ACCEPTABLE            
             for outrepr in self.outreprs:
                 if mimetype == outrepr.mimetype:
-                    return outrepr(data)
+                    return outrepr()
+        # Fallback: choose the last; considered the most desirable
+        return self.outreprs[-1]()
 
-        # Fallback: choose the most desirable according to order
-        return self.outreprs[-1](data)
-
-    def get_query(self, request):
-        "Parse the query data, if any."
-        if self.infields:
-            self.query = self.infields.parse(request)
-        else:
-            self.query = dict()
-
-    def get_data(self, resource, request, application):
-        """Return the data to display as a data structure
-        for the response generator to interpret.
-        """
-        raise NotImplementedError
-
-    def get_outreprs_links(self, resource, request, application):
+    def get_outrepr_links(self, resource, application, query=dict()):
         "Return data for links to all outreprs for the resource."
         url = resource.get_url()
         if url == application.url:
             url += '/'
+        query = dict([(k,v) for k,v in query.iteritems() if v is not None])
+        if query:
+            query = '?' + urllib.urlencode(query)
+        else:
+            query = ''
         result = []
         for r in self.outreprs:
             result.append(dict(title=r.format.upper(),
                                mimetype=r.mimetype,
-                               href=url + '.' + r.format + self.get_encoded_query()))
+                               href=url + '.' + r.format + query))
         return result
 
-    def get_encoded_query(self):
-        "Return the URL-encoded query data, with '?' prepended, if any data."
-        if self.query:
-            return '?' + urllib.urlencode(self.query)
-        else:
-            return ''
 
+class GET(FieldsMethodMixin, OutreprsMethodMixin, Method):
+    pass
 
-class POST(Method):
-    "HTTP request method POST."
+class HEAD(FieldsMethodMixin, Method):
+    pass
 
-    def __init__(self, inreprs=[], outreprs=[], infields=None, descr=None):
-        """Zero or more input representations may be specified.
-        The 'infields' argument must be a Fields instance.
-        """
-        super(POST, self).__init__(descr=descr)
-        self.inreprs = inreprs[:]
-        self.outreprs = outreprs[:]
-        self.infields = infields
+class POST(FieldsMethodMixin, InreprsMethodMixin, OutreprsMethodMixin, Method):
+    pass
 
-
-class PUT(Method):
-    "HTTP request method PUT."
-
-    def __init__(self, inreprs=[], outreprs=[], descr=None):
-        super(PUT, self).__init__(descr=descr)
-        self.inreprs = inreprs[:]
-        self.outreprs = outreprs[:]
-
+class PUT(InreprsMethodMixin, Method):
+    pass
 
 class DELETE(Method):
     pass
@@ -272,6 +330,7 @@ class Representation(object):
             self.headers.add_header('Pragma', 'no-cache')
             self.headers.add_header('Expires', '-1')
 
+    @property
     def descr(self):
         if self._descr:
             return self._descr
@@ -281,10 +340,3 @@ class Representation(object):
     def __call__(self, data):
         "Return the response instance containing the representation."
         raise NotImplementedError
-
-
-class DummyRepresentation(Representation):
-
-    def __init__(self, mimetype, descr):
-        self.mimetype = mimetype
-        self._descr = descr

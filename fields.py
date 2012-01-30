@@ -24,19 +24,19 @@ class Field(object):
         self.default = default
         self.descr = descr
 
+    def __repr__(self):
+        return "%s(%s)" % (self.__class__.__name__, self.name)
+
     def get_data(self, default=None, fill=dict()):
         "Return a dictionary containing the field definition."
         if default is None:
-            if self.default is None:
-                default = fill.get('default')
-            else:
-                default = self.default
+            default = fill.get('default', self.default)
         return dict(type=self.type,
                     name=self.name,
                     title=self.title,
-                    required=self.required,
+                    required=fill.get('required', self.required),
                     default=default,
-                    descr=self.descr or fill.get('descr'))
+                    descr=fill.get('descr', self.descr))
 
     def get_value(self, request):
         """Return the value converted to Python representation.
@@ -244,7 +244,7 @@ class SelectField(Field):
 
     def get_data(self, default=None, fill=dict()):
         result = super(SelectField, self).get_data(default=default, fill=fill)
-        result['options'] = self.options or fill.get('options', [])
+        result['options'] = fill.get('options', self.options)
         result['boxes'] = self.boxes
         return result
 
@@ -304,38 +304,3 @@ class MultiSelectField(SelectField):
         return values
 
 _add(MultiSelectField)
-
-
-class Fields(object):
-    "Input fields handler."
-
-    def __init__(self, *fields):
-        self.fields = []
-        self.lookup = dict()
-        map(self.append, fields)
-
-    def __iter__(self):
-        return iter(self.fields)
-
-    def append(self, field):
-        if field.name in self.lookup:
-            raise ValueError("field name '%s' already in use" % field.name)
-        self.fields.append(field)
-        self.lookup[field.name] = field
-
-    def get_data(self, default=dict(), fill=dict()):
-        return [f.get_data(default=default.get(f.name),
-                           fill=fill.get(f.name, dict()))
-                for f in self.fields]
-
-    def parse(self, request):
-        """Parse out the values from the input fields.
-        Raise HTTP_BAD_REQUEST if any problem.
-        """
-        result = dict()
-        for field in self.fields:
-            try:
-                result[field.name] = field.get_value(request)
-            except ValueError, msg:
-                raise HTTP_BAD_REQUEST(str(msg))
-        return result
