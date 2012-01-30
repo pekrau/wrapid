@@ -2,7 +2,7 @@ wrapid: Web Resource Application Programming Interface using Python WSGI.
 
 A different web server framework with some novel features:
 
-- Designed to facilitate a RESTful API and a Resource Oriented Architecture.
+- Designed to facilitate a Resource Oriented Architecture.
 - Allows the creation of a well-organized RESTful API that is uniform
   for all representations, including HTML for human browsers, or JSON
   and other content types for programmatic access.
