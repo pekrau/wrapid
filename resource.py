@@ -56,7 +56,10 @@ class Resource(object):
         except KeyError:
             return self.__doc__
         else:
-            return get.descr
+            try:
+                return get.descr
+            except AttributeError:
+                return get.__doc__
 
     def __str__(self):
         return "%s(%s)" % (self.type, self.urlpath_template)

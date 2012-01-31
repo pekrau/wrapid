@@ -1,5 +1,10 @@
 wrapid: Web Resource Application Programming Interface built on Python WSGI.
 
+- git rm README.txt
+- git status, commit
+- after Adhoc fixes, push
+- check that README.rd is used at github
+
 - tests_example.py
 - return 415 Unsupported Media Type for wrong inrepr
 - use html_representation for get_documentation?

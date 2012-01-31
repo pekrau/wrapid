@@ -1,0 +1,10 @@
+# Apache2 setup section for the wrapid example implementation
+# Include into the Apache2 'sites-enabled/default' file, or similar.
+
+#### wrapid via WSGI using 'mod_wsgi'
+<Directory "/WHEREVER/wrapid">
+	AddDefaultCharset utf-8
+	Order allow,deny
+	Allow from all
+</Directory>
+WSGIScriptAlias /wrapid /WHEREVER/wrapid/example.py

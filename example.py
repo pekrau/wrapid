@@ -12,26 +12,38 @@ import wrapid
 from wrapid.application import Application
 from wrapid.resource import *
 from wrapid.response import *
+from wrapid.get_static import GET_Static
 from wrapid.utils import basic_authentication
 from wrapid.get_documentation import GET_Documentation
-from wrapid.get_static import GET_Static
+from wrapid.html_representation import markdown_to_html
+
+
+DIRPATH = os.path.dirname(__file__)
 
 
 def home(resource, request, application):
     "Home page for the web application."
     response = HTTP_OK(content_type='text/html')
+    try:
+        infile = open(os.path.join(DIRPATH, 'README.md'))
+    except IOError:
+        readme = 'Error: could not find the README.rd file'
+    else:
+        readme = markdown_to_html(infile.read())
+        infile.close()
     lookup = dict(baseurl=application.url,
-                  github='https://github.com/pekrau/wrapid',
+                  version=wrapid.__version__,
+                  readme=readme,
                   scilifelab='http://tools.scilifelab.se/wrapid')
     response.append("""
 <html>
-<title>wrapid example</title>
+<title>wrapid %(version)s example</title>
 <body>
-<h1>wrapid example</h1>
+<h1>wrapid %(version)s example</h1>
 <p>
-wrapid: Web Resource Application Programming Interface built on Python WSGI.
-
+%(readme)s
 </p>
+<h2>Example resources</h2>
 <ul>
 <li> <a href='%(baseurl)s/login'>Login</a>: Basic Authentication for a name and password.
 <li> <a href='%(baseurl)s/crash'>Crash</a>: Force a server crash.
@@ -39,26 +51,6 @@ wrapid: Web Resource Application Programming Interface built on Python WSGI.
 <li> <a href='%(baseurl)s/doc'>Doc</a>: Produce documentation of the API for
      this web resource by introspection.
 </ul>
-<p>wrapid is a different web server framework with some novel features:
-<ul>
-<li> Designed to facilitate web resource implementation.
-<li> Allows the creation of a well-organized RESTful API that is uniform
-     for all representations, including HTML for human browsers, or JSON
-     and other content types for programmatic access.
-<li> Separates the retrieval/operation on server-side data from the creation
-     of a specific response representation.
-<li> Built-in support to produce documentation of the API by introspection.
-<li> Agnostic as to back-end storage; no ORM, or other built-in DB connection.
-<li> Written in Python 2.6 using WSGI as the web server interface.
-</ul>
-</p>
-
-<p>
-The code for wrapid lives at <a href="%(github)s">github (user pekrau)</a>.
-</p>
-<p>
-This site can also be viewed at <a href="%(scilifelab)s">SciLifeLab</a>.
-</p>
 </body>
 </html>
 """ % lookup)
@@ -113,13 +105,11 @@ application.append(Resource('/login', type='Login', GET=login))
 application.append(Resource('/crash', type='Crash', GET=crash))
 application.append(Resource('/debug', type='Debug', GET=debug))
 
-static_dirpath = os.path.join(os.path.dirname(__file__), 'static')
 application.append(Resource('/static/{filename}', type='File',
-                            GET=GET_Static(static_dirpath)))
+                            GET=GET_Static(os.path.join(DIRPATH, 'static'))))
 
-application.append(Resource('/factory', type='Factory', POST=Factory))
+application.append(Resource('/factory', type='Factory',
+                            POST=Factory))
 
 application.append(Resource('/doc', type='Documentation',
-                            GET=GET_Documentation(),
-                            descr='Produce documentation of the API for'
-                            ' this web resource by introspection.'))
+                            GET=GET_Documentation()))

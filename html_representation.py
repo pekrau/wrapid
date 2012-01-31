@@ -12,13 +12,15 @@ try:
     import markdown
     def markdown_to_html(text):
         if text:
-            text = cgi.escape(text)
-            return markdown.markdown(text, output_format='html4')
+            return markdown.markdown(cgi.escape(text), output_format='html4')
         else:
             return ''
 except ImportError:                     # Fallback
     def markdown_to_html(text):
-        return PRE(cgi.escape(text))
+        if text:
+            return PRE(cgi.escape(text))
+        else:
+            return ''
 
 
 from wrapid.response import *
