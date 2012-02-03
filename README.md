@@ -29,6 +29,8 @@ module in your Apache2 installation, and add the contents of the file
 
 The wrapid source code lives at
 [https://github.com/pekrau/wrapid](https://github.com/pekrau/wrapid).
+It relies on the package **HyperText** at
+[https://github.com/pekrau/HyperText](https://github.com/pekrau/HyperText).
 
-An example implementation can be viewed at
+An installation showing the example code can be viewed at
 [http://tools.scilifelab.se/wrapid](http://tools.scilifelab.se/wrapid).
