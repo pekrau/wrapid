@@ -16,6 +16,7 @@ from wrapid.get_static import GET_Static
 from wrapid.utils import basic_authentication
 from wrapid.get_documentation import GET_Documentation
 from wrapid.html_representation import markdown_to_html
+from wrapid.json_representation import JsonRepresentation
 
 
 DIRPATH = os.path.dirname(__file__)
@@ -89,9 +90,14 @@ debug.mimetype = 'text/plain'
 class Factory(POST):
     "Here POST method documentation should go."
 
+    outreprs = (JsonRepresentation,)
+
     fields = (TextField('thing',
                         required=True,
                         descr='Thing to make.'),)
+
+    def get_data(self, resource, request, application):
+        return dict(info='some data')
 
 
 class WrapidExample(Application):
@@ -109,7 +115,7 @@ application.append(Resource('/static/{filename}', type='File',
                             GET=GET_Static(os.path.join(DIRPATH, 'static'))))
 
 application.append(Resource('/factory', type='Factory',
-                            POST=Factory))
+                            POST=Factory()))
 
 application.append(Resource('/doc', type='Documentation',
                             GET=GET_Documentation()))

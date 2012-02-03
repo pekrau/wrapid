@@ -218,7 +218,7 @@ class GET_Documentation(GET):
                 continue
             resourcedata = dict(resource=res.type,
                                 href=res.urlpath_template,
-                                descr=res.descr)
+                                descr=str(res.descr)) # Must eval property!
             methoddata = resourcedata.setdefault('methods', dict())
             for name in HTTP_METHODS:
                 try:
@@ -226,7 +226,7 @@ class GET_Documentation(GET):
                 except KeyError:
                     continue
                 try:
-                    descr = method.descr
+                    descr = str(method.descr) # Must eval property!
                 except (TypeError, AttributeError):
                     descr = method.__doc__ or None
                 methoddata[name] = dict(descr=descr)

@@ -7,26 +7,28 @@ A web server framework with the following features:
 - Allows the creation of a well-organized RESTful API that is uniform
   for all representations, including HTML for human browsers, or JSON
   and other content types for programmatic access.
-- Agnostic as to back-end storage; no ORM, or other built-in DB connection.
+- Agnostic as to back-end storage; no Object-Relational Manager (ORM),
+  or other built-in DB connection.
 - Built-in support to produce documentation of the API by introspection.
 - Written in Python 2.6 using WSGI as the web server interface.
 
-The framework defines four distinct phases in the processing of
-a request on the server side: 
+The framework defines four distinct phases in the server's processing
+of a request. The code using the framework can use an HTTP Response
+exception to jump out of the normal processing during any of the four phases.
 
-1. Prepare; connect to database, authenticate the request, etc.
-2. Request handling; database updates, etc.
-3. Get the data for the response.
-4. Return the response using a representation to format the data.
+1. Prepare: connect to the database, authenticate the request, etc.
+2. Handling: update the database, modify server-side resources etc.
+3. Data: Get the data for the response.
+4. Response: Use a representation to format the data obtained from phase 3.
 
-The wrapid source code lives at
-[github, user pekrau](https://github.com/pekrau/wrapid).
-
-There is an example implementation 'example.py', which illustrates
-a few of the features. Enable the mod_wsgi module in your Apache2
-installation, and add the section from the file 'apache2.cnf'
-in the distribution to your Apache2 configuration file
+The source code distribution contains an example implementation 'example.py',
+which illustrates a few of the features. To install it, enable the mod_wsgi
+module in your Apache2 installation, and add the contents of the file
+'apache2.cnf' (in the distribution) to your Apache2 configuration file
 'sites-available/default' (or similar).
 
-The example implementation can be viewed at
+The wrapid source code lives at
+[https://github.com/pekrau/wrapid](https://github.com/pekrau/wrapid).
+
+An example implementation can be viewed at
 [http://tools.scilifelab.se/wrapid](http://tools.scilifelab.se/wrapid).

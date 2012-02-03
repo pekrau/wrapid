@@ -201,15 +201,15 @@ class BaseHtmlRepresentation(Representation):
         except KeyError:
             row.append(TR(TD(style='width:67%')))
         else:
-            contact = host.get('contact', '')
+            admin = host.get('admin', '')
             try:
-                contact += " (%s)" % host['email']
+                admin += " (%s)" % host['email']
             except KeyError:
                 pass
             row.append(TD(A(host.get('title') or host['href'],
                             href=host['href']),
                           style='width:33%; text-align:center;'),
-                       TD(contact, style='width:33%;text-align:right;'))
+                       TD(admin, style='width:33%;text-align:right;'))
         return TABLE(row, width='100%')
 
     def get_scripts(self):

@@ -65,8 +65,8 @@ def get_account_basic_authentication(request, realm, get_account):
     in the request. The argument 'get_account' is a function that takes
     an account name and optionally a password, and returns a dictionary
     describing the account.
-    If none (and none available according to the cookie), then return
-    the account 'anonymous'.
+    If none (and none available according to the cookie),
+    then return the account 'anonymous'.
     Raise KeyError if no such account.
     Raise ValueError if incorrect password.
     """
@@ -106,3 +106,16 @@ def rstr(value):
                      for key, value in value.iteritems()])
     else:
         return value
+
+def to_bool(value):
+    """Convert the string value to boolean.
+    Raise ValueError if not interpretable.
+    """
+    if not value: return False
+    value = value.lower()
+    if value in ('true', 't', 'on', 'yes', '1'):
+        return True
+    elif value in ('false', 'f', 'off', 'no', '0'):
+        return False
+    else:
+        raise ValueError("invalid literal '%s' for boolean" % value)
