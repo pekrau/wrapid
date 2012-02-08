@@ -141,13 +141,11 @@ class Webresource(object):
 
 
 if __name__ == '__main__':
-    wr = Webresource('http://localhost/wrapid')
-    print wr, id(wr), wr.accept
-    wr2 = wr.copy()
-    wr2.accept = 'text/plain'
-    print wr2, id(wr2), wr2.accept
-    print wr, id(wr), wr.accept
-    response = wr.GET('/doc')
-    print response.status, response.reason, len(response.read())
-    response = wr.POST('/factory')
-    print response.status, response.reason, response.read()
+    import sys
+    for filename in sys.argv[1:]:
+        wr = Webresource('http://localhost/webtables')
+        response = wr.GET("/static/%s" % filename)
+        print response.status, response.reason
+        print 'Response data length', len(response.read())
+        for item in response.getheaders():
+            print item

@@ -34,9 +34,6 @@ class Response(Exception):
     def __iter__(self):
         return iter(self.content)
 
-    def __len__(self):
-        return sum(map(len, self.content))
-
     def append(self, data):
         self.content.append(str(data))
 

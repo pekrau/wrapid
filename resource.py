@@ -132,7 +132,7 @@ class Resource(object):
 
 
 class Method(object):
-    """HTTP request method base class.
+    """HTTP request method abstract base class.
     An instance is callable, returning a response instance.
     """
 
@@ -243,7 +243,7 @@ class OutreprsMethodMixin(object):
 
     def get_outrepr(self, resource, request, application):
         """Return the outgoing representation instance.
-        Uses format or content negotiation using the Accept header
+        Does format or content negotiation using the Accept header
         to determine which outgoing representation to use.
         At least one outgoing representation must be defined.
         """
