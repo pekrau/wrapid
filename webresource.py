@@ -1,6 +1,6 @@
-""" wrapid: Web Resource Application Programming Interface built on Python WSGI.
+""" wrapid: Web Resource API server framework built on Python WSGI.
 
-Interface to a web resource, using JSON as default representation format.
+Interface to a wrapid-style web resource, using JSON as default representation.
 """
 
 import urlparse

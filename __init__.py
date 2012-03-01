@@ -1,3 +1,3 @@
-" wrapid: Web Resource Application Programming Interface built on Python WSGI."
+" wrapid: Web Resource API server framework built on Python WSGI."
 
-__version__ = '2.0'
+__version__ = '12.2'

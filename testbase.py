@@ -1,10 +1,11 @@
-""" wrapid: Web Resource Application Programming Interface built on Python WSGI.
+""" wrapid: Web Resource API server framework built on Python WSGI.
 
 Unit test framework for accessing wrapid-style web resources.
 """
 
 import unittest
 import optparse
+import httplib
 import wsgiref.headers
 import json
 
@@ -63,3 +64,46 @@ class TestExecutor(object):
             suites.append(unittest.TestLoader().loadTestsFromTestCase(klass))
         alltests = unittest.TestSuite(suites)
         unittest.TextTestRunner(verbosity=self.verbosity).run(alltests)
+
+
+class TestAccess(TestBase):
+    "Test basic access to a standard web application."
+
+    def test_GET_home_HTML(self):
+        "Fetch the home page, in HTML format."
+        wr = self.get_wr('text/html')
+        response = wr.GET('/')
+        self.assertEqual(response.status, httplib.OK,
+                         msg="HTTP status %s" % response.status)
+        headers = self.get_headers(response)
+        self.assert_(headers.get('content-type').startswith('text/html'))
+
+    def test_GET_home_JSON(self):
+        "Fetch the home page, in JSON format."
+        response = self.wr.GET('/')
+        self.assertEqual(response.status, httplib.OK,
+                         msg="HTTP status %s" % response.status)
+        headers = self.get_headers(response)
+        self.assert_(headers['content-type'] == 'application/json',
+                     msg=headers['content-type'])
+        self.get_json_data(response)
+
+    def test_GET_home_XYZ(self):
+        "Try fetching the home page in an non-existent format."
+        wr = self.get_wr('text/xyz')
+        response = wr.GET('/')
+        self.assertEqual(response.status, httplib.NOT_ACCEPTABLE,
+                         msg="HTTP status %s" % response.status)
+
+    def test_GET_nonexistent(self):
+        "Try fetching a non-existent resource."
+        response = self.wr.GET('/doesnotexist')
+        self.assertEqual(response.status, httplib.NOT_FOUND,
+                         msg="HTTP status %s" % response.status)
+
+
+if __name__ == '__main__':
+    URL = 'http://localhost/wrapid'
+    ex = TestExecutor(url=URL)
+    print 'Testing', ex.wr
+    ex.test(TestAccess)

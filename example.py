@@ -1,79 +1,140 @@
-""" wrapid: Web Resource Application Programming Interface built on Python WSGI.
+""" wrapid: Web Resource API server framework built on Python WSGI.
 
-Example web service.
+Example web service, illustrating use of the wrapid package.
 """
 
 import logging
 import os.path
+import csv
+from cStringIO import StringIO
 
 logging.basicConfig(level=logging.DEBUG)
 
 import wrapid
-from wrapid.application import Application
-from wrapid.resource import *
+from wrapid.fields import *
 from wrapid.response import *
-from wrapid.get_static import GET_Static
-from wrapid.utils import basic_authentication
-from wrapid.get_documentation import GET_Documentation
-from wrapid.html_representation import markdown_to_html
+from wrapid.application import Application
+from wrapid.resource import Resource, GET, POST
+from wrapid.static import *
+from wrapid.documentation import *
+from wrapid.html_representation import * # Warning: potential 'HEAD' collision!
 from wrapid.json_representation import JsonRepresentation
+from wrapid.text_representation import TextRepresentation
 
 
-DIRPATH = os.path.dirname(__file__)
+DIR_PATH = os.path.dirname(__file__)
 
 
-def home(resource, request, application):
+class MethodMixin(object):
+    "Mixin class providing the links data for all HTTP method classes."
+
+    def get_data_links(self, resource, request, application):
+        "Return the links data for the response."
+        return [dict(title='Debug',
+                     href=application.get_url('debug')),
+                dict(title='Crash',
+                     href=application.get_url('crash')),
+                dict(title='Input',
+                     href=application.get_url('input')),
+                dict(title='Documentation: API',
+                     href=application.get_url('doc'))]
+
+
+class HomeHtmlRepresentation(BaseHtmlRepresentation):
+    stylesheets = ['static/standard.css']
+
+
+class GET_Home(MethodMixin, GET):
     "Home page for the web application."
-    response = HTTP_OK(content_type='text/html')
-    try:
-        infile = open(os.path.join(DIRPATH, 'README.md'))
-    except IOError:
-        readme = 'Error: could not find the README.rd file'
-    else:
-        readme = markdown_to_html(infile.read())
-        infile.close()
-    lookup = dict(baseurl=application.url,
-                  version=wrapid.__version__,
-                  readme=readme,
-                  scilifelab='http://tools.scilifelab.se/wrapid')
-    response.append("""
-<html>
-<title>wrapid %(version)s example</title>
-<body>
-<h1>wrapid %(version)s example</h1>
-<p>
-%(readme)s
-</p>
-<h2>Example resources</h2>
-<ul>
-<li> <a href='%(baseurl)s/login'>Login</a>: Basic Authentication for a name and password.
-<li> <a href='%(baseurl)s/crash'>Crash</a>: Force a server crash.
-<li> <a href='%(baseurl)s/debug'>Debug</a>: Output debug information; CGI info.
-<li> <a href='%(baseurl)s/doc'>Doc</a>: Produce documentation of the API for
-     this web resource by introspection.
-</ul>
-</body>
-</html>
-""" % lookup)
-    return response
-home.mimetype = 'text/html'
 
-def login(resource, request, application):
-    "Require user name and password."
-    user, password = basic_authentication(request, 'wrapid')
-    response = HTTP_OK(content_type='text/plain')
-    response.append("User: %s\n" % user)
-    response.append("Password: %s\n" % password)
-    return response
+    outreprs = [TextRepresentation,
+                JsonRepresentation,
+                HomeHtmlRepresentation]
 
-def crash(resource, request, application):
-    "Force an internal server error."
-    response = HTTP_OK(content_type='text/plain')
-    response.append('This is a forced crash.\n')
-    raise ValueError('explicitly forced error')
+    def get_data_resource(self, resource, request, application):
+        "Return the data dictionary for the response."
+        try:
+            descr = open(os.path.join(DIR_PATH, 'README.md')).read()
+        except IOError:
+            descr = 'Error: Could not find the wrapid README.rd file.'
+        return dict(descr=descr)
+
+
+class ApiDocumentationHtmlRepresentation(ApiDocumentationHtmlMixin,
+                                         BaseHtmlRepresentation):
+    stylesheets = ['static/standard.css']
+
+
+class GET_WrapidApiDocumentation(MethodMixin, GET_ApiDocumentation):
+    "Produce the documentation for the web resource API by introspection."
+
+    outreprs = [TextRepresentation,
+                JsonRepresentation,
+                ApiDocumentationHtmlRepresentation]
+
+
+class FormHtmlRepresentation(FormHtmlMixin, BaseHtmlRepresentation):
+    stylesheets = ['static/standard.css']
+
+    def get_descr(self):
+        table = TABLE(border=1)
+        for row in self.data.get('rows', []):
+            table.append(TR(*[TD(i) for i in row]))
+        return table
+
+
+class GET_Input(MethodMixin, GET):
+
+    outreprs = [TextRepresentation,
+                JsonRepresentation,
+                FormHtmlRepresentation]
+
+    fields = (SelectField('delimiter',
+                          required=True,
+                          options=['tab', 'comma'],
+                          default='tab',
+                          boxes=True),
+              TextField('text', required=True,
+                        descr='Delimited text for table.'))
+
+    def get_data_resource(self, resource, request, application):
+        return dict(title='Input',
+                    descr='Test input of text to be parsed into tabular form,'
+                    ' row by row using a delimiter (tab or comma).',
+                    form=dict(title='Input text',
+                              fields=self.get_fields_data(),
+                              href=resource.url,
+                              cancel=application.url))
+
+class POST_Input(MethodMixin, POST):
+
+    outreprs = [TextRepresentation,
+                JsonRepresentation,
+                FormHtmlRepresentation]
+
+    fields = GET_Input.fields
+
+    def handle(self, resource, request, application):
+        values = self.parse_fields(request)
+        if values['delimiter'] == 'comma':
+            delimiter = ','
+        else:
+            delimiter = '\t'
+        reader = csv.reader(StringIO(values.get('text', '[no text')),
+                            delimiter=delimiter)
+        self.rows = list(reader)
+
+    def get_data_resource(self, resource, request, application):
+        return dict(title='Input',
+                    rows=self.rows,
+                    form=dict(title='Paste in text',
+                              fields=self.get_fields_data(),
+                              href=resource.url,
+                              quit=application.url))
+
 
 def debug(resource, request, application):
-    "Return information about the request data provided to the server."
+    "Return information about the request data. Function for HTTP method."
     response = HTTP_OK(content_type='text/plain')
     response.append("Application URL: %s\n" % application.url)
     response.append("   Resource URL: %s\n\n" % resource.url)
@@ -84,38 +145,35 @@ def debug(resource, request, application):
     for item in sorted(request.environ.items()):
         response.append("%s: %s\n" % item)
     return response
-debug.mimetype = 'text/plain'
+
+debug.mimetype = 'text/plain'           # Func attr to specify mimetype
+
+def crash(resource, request, application):
+    "Force an internal server error. Function for HTTP method."
+    response = HTTP_OK(content_type='text/plain')
+    response.append('This response will not be returned.')
+    raise ValueError('explicitly forced error')
 
 
-class Factory(POST):
-    "Here POST method documentation should go."
 
-    outreprs = (JsonRepresentation,)
-
-    fields = (TextField('thing',
-                        required=True,
-                        descr='Thing to make.'),)
-
-    def get_data(self, resource, request, application):
-        return dict(info='some data')
-
-
-class WrapidExample(Application):
+class Wrapid(Application):
     version = wrapid.__version__
     debug   = True
+    host    = dict(title='web site',
+                   href='http://localhost/',
+                   admin='Administrator',
+                   email='admin@dummy.xyz')
 
-application = WrapidExample()
 
-application.append(Resource('/', type='Home', GET=home))
-application.append(Resource('/login', type='Login', GET=login))
-application.append(Resource('/crash', type='Crash', GET=crash))
+application = Wrapid()
+
+application.append(Resource('/', type='Home', GET=GET_Home))
 application.append(Resource('/debug', type='Debug', GET=debug))
-
+application.append(Resource('/crash', type='Crash', GET=crash))
+application.append(Resource('/input', type='Input',
+                            GET=GET_Input,
+                            POST=POST_Input))
 application.append(Resource('/static/{filename}', type='File',
-                            GET=GET_Static(os.path.join(DIRPATH, 'static'))))
-
-application.append(Resource('/factory', type='Factory',
-                            POST=Factory()))
-
-application.append(Resource('/doc', type='Documentation',
-                            GET=GET_Documentation()))
+                            GET=GET_Static(DIR_PATH)))
+application.append(Resource('/doc', type='Documentation API',
+                            GET=GET_WrapidApiDocumentation))

@@ -1,11 +1,12 @@
-""" wrapid: Web Resource Application Programming Interface built on Python WSGI.
+""" wrapid: Web Resource API server framework built on Python WSGI.
 
 Text representation of data using Python 'pprint'.
 """
 
 import pprint
 
-from .resource import *
+from .response import *
+from .representation import *
 
 
 class TextRepresentation(Representation):

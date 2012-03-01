@@ -1,7 +1,6 @@
-""" wrapid: Web Resource Application Programming Interface built on Python WSGI.
+""" wrapid: Web Resource API server framework built on Python WSGI.
 
-Handle access to a resource specified by the template URL path.
-Resource, method and representation classes.
+Resource and HTTP method classes for handling access to a resource.
 
 Methods subclass capabilities:
 
@@ -13,17 +12,15 @@ PUT       no        yes       no
 DELETE    no        no        no
 """
 
-import logging
 import re
-import urllib
 import cgi
+import inspect
 import wsgiref.util
-import wsgiref.headers
 
 from .fields import *
 from .response import *
 from . import mimeparse
-from .utils import HTTP_METHODS
+from .utils import HTTP_METHODS, url_build
 
 
 class Resource(object):
@@ -39,6 +36,8 @@ class Resource(object):
         for key, instance in methods.items():
             if key not in HTTP_METHODS:
                 raise ValueError("invalid HTTP method '%s'" % key)
+            if inspect.isclass(instance): # If class, then instantiate
+                instance = instance()
             if not callable(instance):
                 raise ValueError("HTTP method '%s' instance not callable" % key)
             self.methods[key] = instance
@@ -51,20 +50,24 @@ class Resource(object):
     def descr(self):
         if self._descr:
             return self._descr
-        try:
-            get = self.methods['GET']
-        except KeyError:
-            return self.__doc__
-        else:
+        for key in HTTP_METHODS:
             try:
-                return get.descr
-            except AttributeError:
-                return get.__doc__
+                method = self.methods[key]
+            except KeyError:
+                pass
+            else:
+                try:
+                    return method.descr
+                except AttributeError:
+                    return method.__doc__
+        else:
+            return None
 
     def __str__(self):
         return "%s(%s)" % (self.type, self.urlpath_template)
 
     def __call__(self, request, application):
+        "Dispatch the request to the indicated HTTP method instance."
         self.url = wsgiref.util.request_uri(request.environ,include_query=False)
         format = self.variables.get('FORMAT')
         if format:
@@ -115,20 +118,30 @@ class Resource(object):
                 expression = r'(?:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})|(?:[a-f0-9]{32})'
             elif type == 'identifier':  # Identifier: alphabetical + word
                 expression = r'[a-zA-Z_]\w*'
+            elif type == 'date':        # ISO date YYYY-MM-DD
+                expression = r'\d{4}-\d{2}-\d{2}'
             elif type == 'integer':
                 expression = r'[-+]?\d+'
             else:
                 raise ValueError("unknown type in template variable: %s" % type)
         return "(?P<%s>%s)" % (variable, expression)
 
+    def undo_format_specifier(self, varname):
+        """It has been determined in some way that the FORMAT specifier
+        in the URL really is part of the resource identifier,
+        so undo the split by appending the FORMAT part to the variable
+        of the given name.
+        """
+        self.variables[varname] += self.variables['FORMAT']
+        self.url += self.variables['FORMAT']
+        self.variables['FORMAT'] = None
+
     def get_url(self, *segments, **query):
         """Synthesize an absolute URL from the resource URL
         and the given path segments and query.
         """
-        url = '/'.join([self.url] + list(segments))
-        if query:
-            url += '?' + urllib.urlencode(query)
-        return str(url)
+        segments = [self.url] + list(segments)
+        return url_build(*segments, **query)
 
 
 class Method(object):
@@ -229,17 +242,65 @@ class OutreprsMethodMixin(object):
 
     def get_response(self, resource, request, application):
         """Return the response instance.
-        First, collect the data required for the representation.
-        Then, decide which representation to use.
-        Last, return the response from the representation given the data.
+        First collect the data required for the representation.
+        Then decide which representation to use.
+        Lastly return the response from the representation given the data.
         """
         data = self.get_data(resource, request, application)
         outrepr = self.get_outrepr(resource, request, application)
         return outrepr(data)
 
     def get_data(self, resource, request, application):
-        "Return a dictionary containing the data for the response."
-        raise NotImplementedError
+        "Return the response data dictionary."
+        data = self.get_data_general(resource, request, application)
+        data['links'] = \
+            self.get_data_links(resource, request, application)
+        data['operations'] = \
+            self.get_data_operations(resource, request, application)
+        data['outreprs'] = \
+            self.get_data_outreprs(resource, request, application)
+        data.update(self.get_data_resource(resource, request, application))
+        return data
+
+    def get_data_general(self, resource, request, application):
+        "Return the general response data dictionary."
+        data = dict(application=dict(name=application.name,
+                                     version=application.version,
+                                     href=application.url,
+                                     host=application.host),
+                    title="%s %s" % (application.name, application.version),
+                    resource=resource.type,
+                    href=resource.url)
+        # This works with LoginMixin, if used.
+        try:
+            data['login'] = self.login['name']
+        except AttributeError:
+            pass
+        return data
+
+    def get_data_links(self, resource, request, application):
+        "Return the links response data."
+        return []
+
+    def get_data_operations(self, resource, request, application):
+        "Return the operations response data."
+        return []
+
+    def get_data_outreprs(self, resource, request, application):
+        "Return the outrepr links response data."
+        url = resource.url
+        if url == application.url:
+            url += '/'
+        outreprs = []
+        for outrepr in self.outreprs:
+            outreprs.append(dict(title=outrepr.format.upper(),
+                                 mimetype=outrepr.mimetype,
+                                 href=url + '.' + outrepr.format))
+        return outreprs
+
+    def get_data_resource(self, resource, request, application):
+        "Return the dictionary with the resource-specific response data."
+        return dict()
 
     def get_outrepr(self, resource, request, application):
         """Return the outgoing representation instance.
@@ -271,23 +332,6 @@ class OutreprsMethodMixin(object):
         # Fallback: choose the last; considered the most desirable
         return self.outreprs[-1]()
 
-    def get_outrepr_links(self, resource, application, query=dict()):
-        "Return data for links to all outreprs for the resource."
-        url = resource.get_url()
-        if url == application.url:
-            url += '/'
-        query = dict([(k,v) for k,v in query.iteritems() if v is not None])
-        if query:
-            query = '?' + urllib.urlencode(query)
-        else:
-            query = ''
-        result = []
-        for r in self.outreprs:
-            result.append(dict(title=r.format.upper(),
-                               mimetype=r.mimetype,
-                               href=url + '.' + r.format + query))
-        return result
-
 
 class GET(FieldsMethodMixin, OutreprsMethodMixin, Method):
     pass
@@ -305,41 +349,12 @@ class DELETE(Method):
     pass
 
 
-class Representation(object):
-    "Output representation generator for a specified mimetype."
+class RedirectMixin(object):
+    "Mixin class for HTTP method classes, providing a redirect response."
 
-    mimetype = None
-    format = None
-    cache_control = 'max-age=3600'
+    def set_redirect(self, url):
+        self.redirect = url
 
-    def __init__(self, descr=None):
-        self._descr = descr
-        self.headers = wsgiref.headers.Headers([('Content-Type',self.mimetype)])
-
-    def get_http_headers(self):
-        """Get the dictionary of HTTP headers,
-        suitable when creating an HTTP_OK instance.
-        """
-        return dict(self.headers)
-
-    def set_cache_control_headers(self, cacheable):
-        "Set the HTTP headers for cache control."
-        if cacheable is None:
-            return
-        elif cacheable:
-            self.headers.add_header('Cache-Control', self.cache_control)
-        else:
-            self.headers.add_header('Cache-Control', 'no-cache')
-            self.headers.add_header('Pragma', 'no-cache')
-            self.headers.add_header('Expires', '-1')
-
-    @property
-    def descr(self):
-        if self._descr:
-            return self._descr
-        else:
-            return self.__doc__
-
-    def __call__(self, data):
-        "Return the response instance containing the representation."
-        raise NotImplementedError
+    def get_response(self, resource, request, application):
+        "Redirect to a URL specified by the attribute 'redirect'."
+        return HTTP_SEE_OTHER(Location=self.redirect)

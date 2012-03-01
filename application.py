@@ -1,4 +1,4 @@
-""" wrapid: Web Resource Application Programming Interface built on Python WSGI.
+""" wrapid: Web Resource API server framework built on Python WSGI.
 
 Application class: WSGI interface.
 """
@@ -8,13 +8,13 @@ import traceback
 import wsgiref.util
 import wsgiref.headers
 import cgi
-import urllib
 import json
 import Cookie
 import urlparse
 
 from .response import *
 from . import mimeparse
+from .utils import url_build
 
 
 class Application(object):
@@ -25,7 +25,12 @@ class Application(object):
     this class for all HTTP requests to the relevant URLs.
     """
 
+    # These should be modified in inheriting classes.
     version = 'x'
+    host    = dict(title='web site',
+                   href='http://localhost/',
+                   admin='Administrator',
+                   email='admin@localhost.xyz')
     debug   = False
 
     def __init__(self):
@@ -50,10 +55,13 @@ class Application(object):
             response = resource(request, self)
             return response(start_response)
         except HTTP_UNAUTHORIZED, error: # Do not log, nor give browser output
+            logging.debug("wrapid: HTTP %s", error)
             return error(start_response)
         except HTTP_REDIRECTION, error:
+            logging.debug("wrapid: HTTP %s", error)
             return error(start_response)
         except HTTP_ERROR, error:
+            logging.debug("wrapid: HTTP %s", error)
             if request.human_user_agent:
                 response = HTTP_OK(content_type='text/plain')
                 response.append("%s\n\n%s" % (error, ''.join(error.content)))
@@ -62,7 +70,7 @@ class Application(object):
                 return error(start_response)
         except Exception, message:
             tb = traceback.format_exc(limit=20)
-            logging.error("wrapid: exception\n%s", tb)
+            logging.error("wrapid: Exception\n%s", tb)
             error = HTTP_INTERNAL_SERVER_ERROR(content_type='text/plain')
             error.append("%s\n" % error)
             if self.debug:
@@ -90,10 +98,8 @@ class Application(object):
         """Synthesize an absolute URL from the application URL
         and the given path segments and query.
         """
-        url = '/'.join([self.url] + [str(s) for s in segments])
-        if query:
-            url += '?' + urllib.urlencode(query)
-        return str(url)
+        segments = [self.url] + [str(s) for s in segments]
+        return url_build(*segments, **query)
 
 
 class Request(object):

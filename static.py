@@ -1,9 +1,8 @@
-""" wrapid: Web Resource Application Programming Interface built on Python WSGI.
+""" wrapid: Web Resource API server framework built on Python WSGI.
 
 Access to static files in a predetermined directory on the server.
 """
 
-import logging
 import os.path
 import mimetypes
 import time
@@ -17,7 +16,7 @@ class GET_Static(GET):
     The mimetype of the response is determined by the file name extension.
     """
 
-    # Missing mimetypes, or overrides over those in mimetypes module
+    # Add missing mimetypes, or override those in mimetypes module
     MIMETYPES = dict(json='application/json')
 
     def __init__(self, dirpath,
@@ -43,7 +42,6 @@ class GET_Static(GET):
         mod_file = time.strftime(DATETIME_WEB_FORMAT, time.gmtime(mtime))
         mod_since = request.headers['If-Modified-Since']
         if mod_since == mod_file:       # Don't bother comparing '<'.
-            logging.debug("HTTP Not Modified")
             raise HTTP_NOT_MODIFIED
         try:
             ext = os.path.splitext(self.filepath)[1].lstrip('.')
@@ -63,7 +61,6 @@ class GET_Static(GET):
         try:
             response.open(self.filepath)
         except IOError, msg:
-            logging.error("wrapid: static stream file not found: %s", msg)
             raise HTTP_NOT_FOUND
         return response
 

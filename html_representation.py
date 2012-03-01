@@ -1,12 +1,14 @@
-""" wrapid: Web Resource Application Programming Interface built on Python WSGI.
+""" wrapid: Web Resource API server framework built on Python WSGI.
 
 Base class for standard HTML representation of data.
 """
 
-import logging
 import cgi
 
 from HyperText.HTML40 import *
+
+from .response import *
+from .representation import *
 
 try:
     import markdown
@@ -23,34 +25,44 @@ except ImportError:                     # Fallback
             return ''
 
 
-from wrapid.response import *
-from wrapid.resource import Representation
-
-
 class BaseHtmlRepresentation(Representation):
-    "Base HTML representation of the resource."
+    "Base standard HTML representation of the resource."
 
     mimetype = 'text/html'
     format = 'html'
-    scripts = []
-    icons = dict()
+
+    logo = None                         # Relative URL
+    favicon = None                      # Relative URL
+
+    stylesheets = []                    # List of relative URLs
+                                        # If string, then document-level
+                                        # stylesheet 'text/css'
+
+    scripts = []                        # List of relative URLs
 
     def __call__(self, data):
         self.data = data
         self.prepare()
         html = HTML(self.get_head(),
-                    BODY(TABLE(TR(TD(TABLE(TR(TD(self.get_logo())),
-                                           TR(TD(self.get_navigation()))),
+                    BODY(TABLE(TR(TD(TABLE(TR(TD(self.get_logo(),
+                                                 klass='logo')),
+                                           TR(TD(self.get_navigation(),
+                                                 klass='navigation'))),
                                      klass='body_left'),
                                   TD(H1(self.get_title(), klass='title'),
-                                     DIV(self.get_descr(), klass='description'),
+                                     DIV(self.get_descr(), klass='descr'),
                                      DIV(self.get_content(), klass='content'),
                                      klass='body_middle'),
-                                  TD(TABLE(TR(TD(self.get_login())),
-                                           TR(TD(self.get_info())),
-                                           TR(TD(self.get_operations())),
-                                           TR(TD(self.get_metadata())),
-                                           TR(TD(self.get_outreprs())),
+                                  TD(TABLE(TR(TD(self.get_login(),
+                                                 klass='login')),
+                                           TR(TD(self.get_info(),
+                                                 klass='info')),
+                                           TR(TD(self.get_operations(),
+                                                 klass='operations')),
+                                           TR(TD(self.get_metadata(),
+                                                 klass='metadata')),
+                                           TR(TD(self.get_outreprs(),
+                                                 klass='outreprs')),
                                            style='float: right;'),
                                      klass='body_right')),
                                width='100%'),
@@ -61,8 +73,29 @@ class BaseHtmlRepresentation(Representation):
         response.append(str(html))
         return response
 
+    def get_url(self, *segments, **query):
+        "Return a URL based on the application URL."
+        url = '/'.join([self.data['application']['href']] + list(segments))
+        if query:
+            url += '?' + urllib.urlencode(query)
+        return url
+
+    def get_icon(self, name):
+        """Return the IMG element for the named icon.
+        Return None if not defined.
+        """
+        return None
+
+    def get_icon_labelled(self, name):
+        "Return the icon IMG with name label, or just name, if no icon."
+        icon = self.get_icon(name)
+        if icon:
+            return DIV(icon, SPAN(name), klass='icon')
+        else:
+            return name
+
     def prepare(self):
-        "Pre-processing before generating the HTML."
+        "Prepare for generating the HTML."
         pass
 
     def get_head(self):
@@ -71,87 +104,38 @@ class BaseHtmlRepresentation(Representation):
                          content='text/html; charset=utf-8'),
                     META(http_equiv='Content-Script-Type',
                          content='application/javascript'))
-        for stylesheet in self.get_stylesheets():
-            head.append(stylesheet)
-        favicon = self.get_favicon()
-        if favicon:
-            head.append(favicon)
+        if isinstance(self.stylesheets, str):
+            head.append(STYLE("<!--\n%s\n-->\n" % self.stylesheets,
+                              type='text/css'))
+        else:
+            for stylesheet in self.stylesheets:
+                head.append(LINK(rel='stylesheet',
+                                 href=self.get_url(stylesheet),
+                                 type='text/css'))
+        if self.favicon:
+            head.append(LINK(href=self.get_url(self.favicon),
+                             rel='shortcut icon'))
         return head
 
-    def get_stylesheets(self):
-        "To be reimplemented in a subclass."
-        return []
-
-    def get_favicon(self):
-        "To be reimplemented in a subclass."
-        return None
-
     def get_title(self):
+        "Return the title of the page; both for header and body."
         return self.data['title']
 
     def get_logo(self):
-        return A(SPAN('wrapid', style='font-size: xx-large; color: green;'),
-                 href=self.data['application']['href'])
+        if self.logo:
+            return A(IMG(src=self.get_url(self.logo),
+                         alt=self.data['application']['name'],
+                         title=self.data['application']['name']),
+                     href=self.data['application']['href'])
+        else:
+            return A(SPAN('wrapid', style='font-size: xx-large; color: green;'),
+                     href=self.data['application']['href'])
 
     def get_descr(self):
         return markdown_to_html(self.data.get('descr'))
 
-    def get_content(self):
-        return ''
-
-    def get_operations(self):
-        table = TABLE()
-        for operation in self.data.get('operations', []):
-            if isinstance(operation, basestring):
-                table.append(TR(TD(operation, height=10)))
-                continue
-            method = operation.get('method', 'GET')
-            jscode = None
-            fields = []
-            if method == 'DELETE':
-                fields.append(INPUT(type='hidden',
-                                    name='http_method',
-                                    value=method))
-                method = 'POST'
-                jscode = "return confirm('Delete cannot be undone; really delete?');"
-            elif method == 'PUT':
-                fields.append(INPUT(type='hidden',
-                                    name='http_method',
-                                    value=method))
-                method = 'POST'
-            for field in operation.get('fields', []):
-                fields.append(INPUT(type='hidden',
-                                    name=field['name'],
-                                    value=field['value']))
-            table.append(TR(TD(FORM(self.get_submit(operation['title'],
-                                                    onclick=jscode),
-                                    method=method,
-                                    action=operation['href'],
-                                    *fields))))
-        return table
-
-    def get_submit(self, title, onclick=None):
-        "Get the button for submit."
-        try:
-            icon = self.icons[title.split()[0].lower()]
-        except KeyError:
-            if onclick:
-                return INPUT(type='submit', value=title, onclick=onclick)
-            else:
-                return INPUT(type='submit', value=title)
-        else:
-            if onclick:
-                return BUTTON(icon,
-                              SPAN(' ', title, style='vertical-align: middle;'),
-                              type='submit',
-                              onclick=onclick)
-            else:
-                return BUTTON(icon,
-                              SPAN(' ', title, style='vertical-align: middle;'),
-                              type='submit')
-
     def get_navigation(self):
-        table = TABLE(klass='navigation')
+        table = TABLE()
         current = None
         items = []
         for link in self.data.get('links', []):
@@ -174,6 +158,54 @@ class BaseHtmlRepresentation(Representation):
             table.append(TR(TD(current, UL(*items))))
         return table
 
+    def get_content(self):
+        return ''
+
+    def get_operations(self):
+        table = TABLE()
+        for operation in self.data.get('operations', []):
+            if isinstance(operation, basestring): # Not a dict, i.e. a dummy
+                table.append(TR(TD(operation, height=10)))
+                continue
+            method = operation.get('method', 'GET')
+            jscode = None
+            fields = []
+            if method == 'DELETE':
+                fields.append(INPUT(type='hidden',
+                                    name='http_method',
+                                    value=method))
+                method = 'POST'
+                jscode = "return confirm('Delete cannot be undone; really delete?');"
+            elif method == 'PUT':
+                fields.append(INPUT(type='hidden',
+                                    name='http_method',
+                                    value=method))
+                method = 'POST'
+            for field in operation.get('fields', []):
+                fields.append(INPUT(type='hidden',
+                                    name=field['name'],
+                                    value=field['value']))
+            table.append(TR(TD(FORM(self.get_button(operation['title'],
+                                                    onclick=jscode),
+                                    method=method,
+                                    action=operation['href'],
+                                    *fields))))
+        return table
+
+    def get_button(self, title, type='submit', onclick=None):
+        "Get the button for the given type of action."
+        icon = self.get_icon(title.split()[0].lower())
+        if icon:
+            if onclick:
+                return BUTTON(icon, title, type=type, onclick=onclick)
+            else:
+                return BUTTON(icon, title, type=type)
+        else:
+            if onclick:
+                return INPUT(type=type, value=title, onclick=onclick)
+            else:
+                return INPUT(type=type, value=title)
+
     def get_login(self):
         return ''
 
@@ -187,10 +219,9 @@ class BaseHtmlRepresentation(Representation):
         outreprs = self.data.get('outreprs', [])
         outreprs = [o for o in outreprs if o['title'] != 'HTML'] # Skip itself
         if not outreprs: return ''
-        table = TABLE(TR(TH('Alternative representations')),
-                      klass='representations')
-        for link in outreprs:
-            table.append(TR(TD(A(link['title'], href=link['href']))))
+        table = TABLE(TR(TH('Alternative representations')))
+        for outrepr in outreprs:
+            table.append(TR(TD(A(outrepr['title'], href=outrepr['href']))))
         return table
 
     def get_footer(self):
@@ -198,6 +229,7 @@ class BaseHtmlRepresentation(Representation):
         row = TR(TD("%(name)s %(version)s" % application, style='width:34%;'))
         try:
             host = application['host']
+            if not host: raise KeyError
         except KeyError:
             row.append(TR(TD(style='width:67%')))
         else:
@@ -206,9 +238,11 @@ class BaseHtmlRepresentation(Representation):
                 admin += " (%s)" % host['email']
             except KeyError:
                 pass
-            row.append(TD(A(host.get('title') or host['href'],
-                            href=host['href']),
-                          style='width:33%; text-align:center;'),
+            try:
+                link = A(host.get('title') or host['href'], href=host['href'])
+            except KeyError:
+                link = ''
+            row.append(TD(link, style='width:33%; text-align:center;'),
                        TD(admin, style='width:33%;text-align:right;'))
         return TABLE(row, width='100%')
 
@@ -216,16 +250,27 @@ class BaseHtmlRepresentation(Representation):
         result = DIV()
         for script in self.scripts:
             result.append(SCRIPT(type='text/javascript',
-                                 src=self.get_url('static', script)))
+                                 src=self.get_url(script)))
         return result
 
-    def get_form(self, fields, action, values=dict(),
-                 required='required', legend='',
-                 klass=None, submit='Submit', method='POST'):
-        """Return a FORM element for editing the fields,
-        which are dictionaries representing subclasses of Field.
-        """
-        table = TABLE(klass=klass)
+    def safe_text(self, text):
+        "Return text after escaping for '&', '>' and '<' characters."
+        if text:
+            return cgi.escape(text)
+        else:
+            return text
+
+
+class FormHtmlMixin(object):
+    "Mixin for HTML representation of the form page for data input."
+
+    def get_content(self):
+        "Generate the FORM element from the data."
+        formdata = self.data['form']
+        fields = formdata['fields']
+        values = formdata.get('values', dict())
+        table = TABLE()
+        required = self.get_icon('required') or 'required'
         multipart = False
         for field in fields:
             if field['type'] == 'hidden': continue
@@ -244,35 +289,33 @@ class BaseHtmlRepresentation(Representation):
             table.append(TR(TH(title),
                             TD(field.get('required') and required or ''),
                             TD(panel),
-                            TD(I(field.get('descr') or ''))))
+                            TD(markdown_to_html(field.get('descr') or ''),
+                               klass='descr')))
         hidden = []
         element = ELEMENT_LOOKUP['hidden']
         for field in fields:
             if field['type'] != 'hidden': continue
             current = values.get(field['name']) or field.get('default')
             hidden.append(element(field, current=current))
-        return FORM(FIELDSET(LEGEND(legend),
-                            table,
-                            DIV(*hidden),
-                            P(self.get_submit(submit))),
-                    enctype=multipart and 'multipart/form-data'
-                            or 'application/x-www-form-urlencoded',
-                    method=method,
-                    action=action)
+        return DIV(P(FORM(FIELDSET(LEGEND(formdata.get('title', '')),
+                                   table,
+                                   DIV(*hidden),
+                                   P(self.get_button(formdata.get('label',
+                                                                  'Submit')))),
+                          enctype=multipart and 'multipart/form-data'
+                                  or 'application/x-www-form-urlencoded',
+                          method=formdata.get('method', 'POST'),
+                          action=formdata['href'])),
+                   P(FORM(self.get_button('Cancel'),
+                          method='GET',
+                          action=formdata.get('cancel') or formdata['href'])))
 
     def get_form_field_panel(self, field, current=None):
-        """Return a custom panel for the given field.
+        """Return a custom panel for the given field in the form.
         Raise KeyError if no custom panel defined for the field;
-        the ELEMENT_LOOKUP will then be used instead.
+        ELEMENT_LOOKUP will then be used instead.
         """
         raise KeyError
-
-    def safe_text(self, text):
-        "Return text after escaping for '&', '>' and '<' characters."
-        if text:
-            return cgi.escape(text)
-        else:
-            return text
 
 
 ELEMENT_LOOKUP = dict()

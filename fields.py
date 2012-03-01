@@ -1,4 +1,4 @@
-""" wrapid: Web Resource Application Programming Interface built on Python WSGI.
+""" wrapid: Web Resource API server framework built on Python WSGI.
 
 Input field classes, for query of form parameter input.
 """
@@ -231,7 +231,7 @@ class SelectField(Field):
 
     type = 'select'
 
-    def __init__(self, name, title=None, options=[], default=[], boxes=False,
+    def __init__(self, name, title=None, options=[], default=None, boxes=False,
                  required=False, check=True, descr=None):
         super(SelectField, self).__init__(name,
                                           title=title,
