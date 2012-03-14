@@ -112,7 +112,8 @@ class Resource(object):
         try:
             variable, type = variable.split(':')
         except ValueError:
-            expression = r'[^/]+?'
+            ## expression = r'[^/]+?'
+            expression = r'[^/]+'
         else:
             if type == 'uuid':          # UUID with or without dashes
                 expression = r'(?:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})|(?:[a-f0-9]{32})'
@@ -122,6 +123,8 @@ class Resource(object):
                 expression = r'\d{4}-\d{2}-\d{2}'
             elif type == 'integer':
                 expression = r'[-+]?\d+'
+            elif type == 'path':
+                expression = r'.+'
             else:
                 raise ValueError("unknown type in template variable: %s" % type)
         return "(?P<%s>%s)" % (variable, expression)
@@ -211,7 +214,7 @@ class FieldsMethodMixin(object):
                                          fill=fill.get(field.name, dict())))
         return result
 
-    def parse_fields(self, request, fields=None, skip=set()):
+    def parse_fields(self, request, fields=None, skip=set(), additional=[]):
         """Return a dictionary containing the values for
         the input fields parsed out from the request.
         If no fields are passed as argument, then use the fields
@@ -219,9 +222,10 @@ class FieldsMethodMixin(object):
         Raise HTTP_BAD_REQUEST if any problem.
         """
         fields = fields or self.fields
+        fields = [f for f in fields if f.name not in skip]
+        fields.extend(additional)
         result = dict()
         for field in fields:
-            if field.name in skip: continue
             try:
                 result[field.name] = field.get_value(request)
             except ValueError, msg:

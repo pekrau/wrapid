@@ -1,3 +1,3 @@
 " wrapid: Web Resource API server framework built on Python WSGI."
 
-__version__ = '12.2'
+__version__ = '12.3'

@@ -70,9 +70,10 @@ class LoginMixin(object):
 class GET_Login(Method):
     "Perform login to an account. Basic Authentication."
 
-    def __init__(self, get_account):
+    def __init__(self, get_account, max_age=18*60*60):
         "Set the account retrieval and authentication function."
         self.get_account = get_account
+        self.max_age = max_age
 
     def handle(self, resource, request, application):
         try:
@@ -89,8 +90,11 @@ class GET_Login(Method):
         # human browsers: For some pages in the site (notably
         # the application root '/'), the authentication data
         # does not seem to be sent voluntarily by the browser.
-        self.cookie = "%s-login=yes; Path=%s" % (application.name,
+        
+        self.cookie = "%s-login=yes; path=%s" % (application.name,
                                                  application.path)
+        if self.max_age:
+            self.cookie += "; max-age=%s" % self.max_age
 
     def get_response(self, resource, request, application):
         return HTTP_SEE_OTHER(Location=self.redirect, Set_Cookie=self.cookie)

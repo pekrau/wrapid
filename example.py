@@ -156,16 +156,14 @@ def crash(resource, request, application):
 
 
 
-class Wrapid(Application):
-    version = wrapid.__version__
-    debug   = True
-    host    = dict(title='web site',
-                   href='http://localhost/',
-                   admin='Administrator',
-                   email='admin@dummy.xyz')
+application = Application(name='Wrapid example',
+                          version=wrapid.__version__,
+                          host=dict(title='web site',
+                                    href='http://localhost/',
+                                    admin='Administrator',
+                                    email='admin@dummy.xyz'),
+                          debug=True)
 
-
-application = Wrapid()
 
 application.append(Resource('/', type='Home', GET=GET_Home))
 application.append(Resource('/debug', type='Debug', GET=debug))

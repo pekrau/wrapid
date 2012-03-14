@@ -33,12 +33,12 @@ class Application(object):
                    email='admin@localhost.xyz')
     debug   = False
 
-    def __init__(self):
+    def __init__(self, name=None, version=None, host=None, debug=None):
+        self.name = name or self.__class__.__name__
+        self.version = version or self.version
+        self.host = host or self.host
+        self.debug = debug or self.debug
         self.resources = []
-
-    @property
-    def name(self):
-        return self.__class__.__name__
 
     def __call__(self, environ, start_response):
         "WSGI interface; this method is called for each HTTP request."

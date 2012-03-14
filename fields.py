@@ -4,6 +4,7 @@ Input field classes, for query of form parameter input.
 """
 
 import logging
+import time
 
 from .response import HTTP_BAD_REQUEST
 
@@ -11,14 +12,15 @@ FIELD_LOOKUP = dict()                   # Key: type, value: class
 
 
 class Field(object):
-    "Abstract input field."
+    "Basic input field."
 
     type = None
 
-    def __init__(self, name, title=None, required=False, default=None,
+    def __init__(self, name, id=None, title=None, required=False, default=None,
                  descr=None):
         assert name
         self.name = name
+        self.id = id
         self.title = title
         self.required = required
         self.default = default
@@ -33,6 +35,7 @@ class Field(object):
             default = fill.get('default', self.default)
         return dict(type=self.type,
                     name=self.name,
+                    id=self.id,
                     title=self.title,
                     required=fill.get('required', self.required),
                     default=default,
@@ -50,9 +53,11 @@ class Field(object):
             if self.default is not None:
                 return self.default
             if self.required:
-                raise ValueError(self.name)
+                raise ValueError("missing value for '%s'" % self.name)
+            return None
 
     def converter(self, value):
+        "Convert and check value for validity."
         return value
 
 
@@ -67,9 +72,10 @@ class CheckboxField(Field):
 
     type = 'checkbox'
 
-    def __init__(self, name, title=None, required=False, default=None,
+    def __init__(self, name, id=None, title=None, required=False, default=None,
                  text=None, descr=None):
         super(CheckboxField, self).__init__(name,
+                                            id=id,
                                             title=title,
                                             required=required,
                                             default=default,
@@ -95,6 +101,7 @@ class CheckboxField(Field):
             return False
 
     def converter(self, value):
+        "Convert and check value for validity."
         return bool(value)
 
 _add(CheckboxField)
@@ -106,6 +113,7 @@ class BooleanField(Field):
     type = 'boolean'
 
     def converter(self, value):
+        "Convert and check value for validity."
         value = value.lstrip()
         return value and value[0].upper() in ('Y', 'T', '1')
 
@@ -117,9 +125,10 @@ class StringField(Field):
 
     type = 'string'
 
-    def __init__(self, name, title=None, required=False, default=None,
+    def __init__(self, name, id=None, title=None, required=False, default=None,
                  length=20, maxlength=100, descr=None):
         super(StringField, self).__init__(name,
+                                          id=id,
                                           title=title,
                                           required=required,
                                           default=default,
@@ -136,6 +145,47 @@ class StringField(Field):
 _add(StringField)
 
 
+class DatetimeField(Field):
+
+    type ='datetime'
+
+    def __init__(self, name, id=None, title=None, required=False, default=None,
+                 format=format, descr=None):
+        super(DatetimeField, self).__init__(name,
+                                            id=id,
+                                            title=title,
+                                            required=required,
+                                            default=default,
+                                            descr=descr)
+        self.format = format
+
+    def get_value(self, request):
+        "Datetime value may be provided in two input fields."
+        try:
+            value = request.get_value(self.name)
+            if value is None:
+                date = request.get_value(self.name + '_date')
+                if date is None: raise KeyError
+                time = request.get_value(self.name + '_time')
+                if time is None: raise KeyError
+                value = "%s %s" % (date, time)
+            return self.converter(value)
+        except KeyError:
+            if self.default is not None:
+                return self.default
+            if self.required:
+                raise ValueError("missing value for '%s'" % self.name)
+            return None
+
+    def converter(self, value):
+        "Check value for validity."
+        if self.format:
+            time.strptime(value, self.format)
+        return value
+
+_add(DatetimeField)
+
+
 class PasswordField(StringField):
     "Password input field."
 
@@ -150,6 +200,7 @@ class IntegerField(Field):
     type = 'integer'
 
     def converter(self, value):
+        "Convert and check value for validity."
         if isinstance(value, basestring):
             value = value.strip()
         try:
@@ -166,6 +217,7 @@ class FloatField(Field):
     type = 'float'
 
     def converter(self, value):
+        "Convert and check value for validity."
         if isinstance(value, basestring):
             value = value.strip()
         try:
@@ -181,9 +233,10 @@ class TextField(Field):
 
     type = 'text'
 
-    def __init__(self, name, title=None, required=False, default=None,
+    def __init__(self, name, id=None, title=None, required=False, default=None,
                  rows=10, cols=80, descr=None):
         super(TextField, self).__init__(name,
+                                        id=id,
                                         title=title,
                                         required=required,
                                         default=default,
@@ -199,7 +252,8 @@ class TextField(Field):
         return result
 
     def converter(self, value):
-        "Clean up CR-LF pairs."
+        """Convert and check value for validity.
+        Clean up CR-LF pairs."""
         if value:
             value = value.replace('\r\n', '\n').strip()
         return value
@@ -208,12 +262,31 @@ _add(TextField)
 
 
 class FileField(Field):
-    "File upload field; file content returned as buffer value."
+    "File upload field; file content and information returned as a dictionary."
 
     type = 'file'
 
+    def get_value(self, request):
+        """Return the file content and information as a dictionary.
+        Raise ValueError if invalid.
+        """
+        try:
+            value = request.fields[self.name]
+            if value is None: raise KeyError
+            if not value.filename: raise KeyError
+            return self.converter(value)
+        except KeyError:
+            if self.default is not None:
+                return self.default
+            if self.required:
+                raise ValueError("missing value for '%s'" % self.name)
+            return None
+
     def converter(self, value):
-        return buffer(value)
+        "Convert into a dictionary."
+        return dict(value=value.file.read(),
+                    filename=value.filename,
+                    type=value.type)
 
 _add(FileField)
 
@@ -231,9 +304,10 @@ class SelectField(Field):
 
     type = 'select'
 
-    def __init__(self, name, title=None, options=[], default=None, boxes=False,
-                 required=False, check=True, descr=None):
+    def __init__(self, name, id=None, title=None, required=False, default=None,
+                 options=[], boxes=False, check=True, descr=None):
         super(SelectField, self).__init__(name,
+                                          id=id,
                                           title=title,
                                           required=required,
                                           default=default,
@@ -249,6 +323,7 @@ class SelectField(Field):
         return result
 
     def converter(self, value):
+        "Convert and check value for validity."
         if value is not None:
             value = str(value)
         if self.required:
@@ -285,6 +360,7 @@ class MultiSelectField(SelectField):
             return self.default
 
     def converter(self, values):
+        "Convert and check value for validity."
         if self.required:
             if not values:
                 raise ValueError('no value selected')

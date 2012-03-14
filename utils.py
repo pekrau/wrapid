@@ -9,12 +9,23 @@ import urllib
 
 HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD']
 
-DATETIME_ISO_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
+DATE_ISO_FORMAT = '%Y-%m-%d'
+TIME_ISO_FORMAT = '%H:%M:%S'
+DATETIME_ISO_FORMAT = "%sT%sZ" % (DATE_ISO_FORMAT, TIME_ISO_FORMAT)
 DATETIME_WEB_FORMAT = '%a, %d %b %Y %H:%M:%S GMT'
 
 
 def now(format=DATETIME_ISO_FORMAT):
+    "Current date and time (UTC) in ISO format."
     return time.strftime(format, time.gmtime())
+
+def now_date(format=DATE_ISO_FORMAT):
+    "Current date (UTC) in ISO format."
+    return now(format=format)
+
+def now_time(format=TIME_ISO_FORMAT):
+    "Current time (UTC) in ISO format."
+    return now(format=format)
 
 def rstr(value):
     "Return str of unicode value, else same, recursively."
@@ -55,3 +66,9 @@ def url_build(*segments, **query):
         return url + '?' + urllib.urlencode(items)
     else:
         return url
+
+
+if __name__ == '__main__':
+    print now()
+    print now_date()
+    print now_time()
