@@ -25,7 +25,7 @@ from .utils import HTTP_METHODS, url_build
 
 class Resource(object):
     """Handle access to a resource specified by the template URL path.
-    Container for the method function implementations.
+    Container for the HTTP method function implementations.
     """
 
     def __init__(self, urlpath_template, type=None, descr=None, **methods):
@@ -195,16 +195,16 @@ class Method(object):
 
 
 class FieldsMethodMixin(object):
-    "Mixin class providing field handling methods."
+    "Mixin class providing field handling functions."
 
     fields = ()
     
-    def get_fields_data(self, fields=None, skip=set(),
+    def get_data_fields(self, fields=None, skip=set(),
                         default=dict(), fill=dict()):
-        """Return the data for the fields to go into
-        the 'form' entry of the resource data dictionary.
-        If no fields are passed as argument, then use the fields
-        defined at class level.
+        """Return the data for the fields to go into the 'form' entry
+        of the resource data dictionary.
+        If no fields are passed as argument, then the fields defined
+        at class level are used.
         """
         fields = fields or self.fields
         result = []
@@ -215,10 +215,10 @@ class FieldsMethodMixin(object):
         return result
 
     def parse_fields(self, request, fields=None, skip=set(), additional=[]):
-        """Return a dictionary containing the values for
-        the input fields parsed out from the request.
-        If no fields are passed as argument, then use the fields
-        defined at class level.
+        """Return a dictionary containing the values for the input fields
+        parsed out from the request.
+        If no fields are passed as argument, then the fields defined
+        at class level are used.
         Raise HTTP_BAD_REQUEST if any problem.
         """
         fields = fields or self.fields
@@ -227,20 +227,20 @@ class FieldsMethodMixin(object):
         result = dict()
         for field in fields:
             try:
-                result[field.name] = field.get_value(request)
+                result[field.name] = field.get_value(request, self)
             except ValueError, msg:
                 raise HTTP_BAD_REQUEST(str(msg))
         return result
 
 
 class InreprsMethodMixin(object):
-    "Mixin class providing incoming representation methods."
+    "Mixin class providing incoming representation functions."
 
     inreprs = ()                      # List of Representation classes
 
 
 class OutreprsMethodMixin(object):
-    "Mixin class providing outgoing representation methods."
+    "Mixin class providing outgoing representation functions."
 
     outreprs = ()                     # List of Representation classes
 

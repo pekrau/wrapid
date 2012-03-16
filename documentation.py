@@ -44,7 +44,7 @@ class ApiDocumentationHtmlMixin(object):
     "Mixin class to produce the HTML representation of the API documentation."
 
     def get_content(self):
-        elems = [markdown_to_html(self.data['text'])]
+        elems = [self.to_html(self.data['text'])]
         rows = [TR(TH('Resource'),
                    TH('URL'),
                    TH('Description'))]
@@ -52,19 +52,19 @@ class ApiDocumentationHtmlMixin(object):
             rows.append(TR(TD(A(resource['resource'],
                                 href="#%(href)s" % resource)),
                            TD(CODE(resource['href'])),
-                           TD(markdown_to_html(resource.get('descr')))))
+                           TD(self.to_html(resource.get('descr')))))
         elems.append(TABLE(*rows))
         for resource in self.data['resources']:
             elems.append(H2(A("%(resource)s: %(href)s" % resource,
                               id=resource['href'])))
-            elems.append(markdown_to_html(resource['descr']))
+            elems.append(self.to_html(resource['descr']))
             for name in HTTP_METHODS:
                 try:
                     method = resource['methods'][name]
                 except KeyError:
                     continue
                 elems.append(H3(name))
-                elems.append(markdown_to_html(method['descr']))
+                elems.append(self.to_html(method['descr']))
 
                 rows = [CAPTION('Input fields'),
                         TR(TH('Parameter'),
@@ -94,7 +94,7 @@ class ApiDocumentationHtmlMixin(object):
                                    TD(field['type']),
                                    TD(options),
                                    TD(str(field['default'] or None)),
-                                   TD(markdown_to_html(field['descr']))))
+                                   TD(self.to_html(field['descr']))))
                 if len(rows) > 2:
                     elems.append(TABLE(*rows))
 
@@ -116,7 +116,7 @@ class ApiDocumentationHtmlMixin(object):
                                       ' Does not allow file upload.')))
                 for inrepr in method.get('inreprs', []):
                     rows.append(TR(TD(inrepr['mimetype']),
-                                   TD(markdown_to_html(inrepr['descr']))))
+                                   TD(self.to_html(inrepr['descr']))))
                 if len(rows) > 2:
                     elems.append(TABLE(*rows))
 
@@ -127,7 +127,7 @@ class ApiDocumentationHtmlMixin(object):
                 for outrepr in method.get('outreprs', []):
                     rows.append(TR(TD(outrepr['mimetype']),
                                    TD(outrepr['format']),
-                                   TD(markdown_to_html(outrepr['descr']))))
+                                   TD(self.to_html(outrepr['descr']))))
                 if len(rows) > 2:
                     elems.append(TABLE(*rows))
         return DIV(klass='doc', *elems)

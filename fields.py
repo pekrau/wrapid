@@ -3,16 +3,14 @@
 Input field classes, for query of form parameter input.
 """
 
-import logging
-import time
-
 from .response import HTTP_BAD_REQUEST
 
-FIELD_LOOKUP = dict()                   # Key: type, value: class
+
+FIELD_CLASS_LOOKUP = dict()             # Key: type, value: class
 
 
 class Field(object):
-    "Basic input field."
+    "Abstract input field."
 
     type = None
 
@@ -41,7 +39,7 @@ class Field(object):
                     default=default,
                     descr=fill.get('descr', self.descr))
 
-    def get_value(self, request):
+    def get_value(self, request, method):
         """Return the value converted to Python representation.
         Raise ValueError if invalid.
         """
@@ -61,10 +59,10 @@ class Field(object):
         return value
 
 
-def _add(klass):
+def add_field_class(klass):
     assert issubclass(klass, Field)
     assert klass.type
-    FIELD_LOOKUP[klass.type] = klass
+    FIELD_CLASS_LOOKUP[klass.type] = klass
 
 
 class CheckboxField(Field):
@@ -87,7 +85,7 @@ class CheckboxField(Field):
         result['text'] = self.text
         return result
 
-    def get_value(self, request):
+    def get_value(self, request, method):
         """Return the value converted to Python representation.
         Raise ValueError if invalid.
         """
@@ -104,7 +102,7 @@ class CheckboxField(Field):
         "Convert and check value for validity."
         return bool(value)
 
-_add(CheckboxField)
+add_field_class(CheckboxField)
 
 
 class BooleanField(Field):
@@ -117,7 +115,7 @@ class BooleanField(Field):
         value = value.lstrip()
         return value and value[0].upper() in ('Y', 'T', '1')
 
-_add(BooleanField)
+add_field_class(BooleanField)
 
 
 class StringField(Field):
@@ -142,48 +140,7 @@ class StringField(Field):
         result['maxlength'] = self.maxlength
         return result
 
-_add(StringField)
-
-
-class DatetimeField(Field):
-
-    type ='datetime'
-
-    def __init__(self, name, id=None, title=None, required=False, default=None,
-                 format=format, descr=None):
-        super(DatetimeField, self).__init__(name,
-                                            id=id,
-                                            title=title,
-                                            required=required,
-                                            default=default,
-                                            descr=descr)
-        self.format = format
-
-    def get_value(self, request):
-        "Datetime value may be provided in two input fields."
-        try:
-            value = request.get_value(self.name)
-            if value is None:
-                date = request.get_value(self.name + '_date')
-                if date is None: raise KeyError
-                time = request.get_value(self.name + '_time')
-                if time is None: raise KeyError
-                value = "%s %s" % (date, time)
-            return self.converter(value)
-        except KeyError:
-            if self.default is not None:
-                return self.default
-            if self.required:
-                raise ValueError("missing value for '%s'" % self.name)
-            return None
-
-    def converter(self, value):
-        "Check value for validity."
-        if self.format:
-            time.strptime(value, self.format)
-        return value
-
-_add(DatetimeField)
+add_field_class(StringField)
 
 
 class PasswordField(StringField):
@@ -191,7 +148,7 @@ class PasswordField(StringField):
 
     type = 'password'
 
-_add(PasswordField)
+add_field_class(PasswordField)
 
 
 class IntegerField(Field):
@@ -208,7 +165,7 @@ class IntegerField(Field):
         except ValueError:
             raise KeyError
 
-_add(IntegerField)
+add_field_class(IntegerField)
 
 
 class FloatField(Field):
@@ -225,7 +182,7 @@ class FloatField(Field):
         except ValueError:
             raise KeyError
 
-_add(FloatField)
+add_field_class(FloatField)
 
 
 class TextField(Field):
@@ -258,7 +215,7 @@ class TextField(Field):
             value = value.replace('\r\n', '\n').strip()
         return value
 
-_add(TextField)
+add_field_class(TextField)
 
 
 class FileField(Field):
@@ -266,7 +223,7 @@ class FileField(Field):
 
     type = 'file'
 
-    def get_value(self, request):
+    def get_value(self, request, method):
         """Return the file content and information as a dictionary.
         Raise ValueError if invalid.
         """
@@ -288,7 +245,7 @@ class FileField(Field):
                     filename=value.filename,
                     type=value.type)
 
-_add(FileField)
+add_field_class(FileField)
 
 
 class HiddenField(Field):
@@ -296,7 +253,7 @@ class HiddenField(Field):
 
     type = 'hidden'
 
-_add(HiddenField)
+add_field_class(HiddenField)
 
 
 class SelectField(Field):
@@ -340,7 +297,7 @@ class SelectField(Field):
                 raise ValueError("value '%s' not among %s" % (value, options))
         return value
 
-_add(SelectField)
+add_field_class(SelectField)
 
 
 class MultiSelectField(SelectField):
@@ -348,22 +305,10 @@ class MultiSelectField(SelectField):
 
     type = 'multiselect'
 
-    def get_value(self, request):
-        """Return the value converted to Python representation.
-        Raise ValueError if invalid.
-        """
-        try:
-            value = request.get_value(self.name)
-            if not value: raise KeyError
-            return self.converter(value)
-        except KeyError:
-            return self.default
-
     def converter(self, values):
         "Convert and check value for validity."
-        if self.required:
-            if not values:
-                raise ValueError('no value selected')
+        if self.required and not values:
+            raise ValueError('no value selected')
         if isinstance(values, basestring):
             values = [values]
         values = map(str, values)
@@ -379,4 +324,4 @@ class MultiSelectField(SelectField):
                     raise ValueError("value '%s' not an option" % value)
         return values
 
-_add(MultiSelectField)
+add_field_class(MultiSelectField)

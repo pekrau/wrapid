@@ -34,6 +34,9 @@ The wrapid framework is written in Python 2.6; 2.7 should also work.
 - [https://github.com/pekrau/hypertext](https://github.com/pekrau/hypertext):
   Package **HyperText** for producing the HTML of the web service interface,
   which is used by the HTML representation class in the wrapid framework.
+- [http://pypi.python.org/pypi/Markdown](http://pypi.python.org/pypi/Markdown):
+  Package **Markdown** for producing HTML from text using the simple markup
+  language [Markdown](http://daringfireball.net/projects/markdown/).
 
 An installation showing the example code can be viewed at
 [http://tools.scilifelab.se/wrapid](http://tools.scilifelab.se/wrapid).

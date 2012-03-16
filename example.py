@@ -102,7 +102,7 @@ class GET_Input(MethodMixin, GET):
                     descr='Test input of text to be parsed into tabular form,'
                     ' row by row using a delimiter (tab or comma).',
                     form=dict(title='Input text',
-                              fields=self.get_fields_data(),
+                              fields=self.get_data_fields(),
                               href=resource.url,
                               cancel=application.url))
 
@@ -128,7 +128,7 @@ class POST_Input(MethodMixin, POST):
         return dict(title='Input',
                     rows=self.rows,
                     form=dict(title='Paste in text',
-                              fields=self.get_fields_data(),
+                              fields=self.get_data_fields(),
                               href=resource.url,
                               quit=application.url))
 

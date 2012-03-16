@@ -5,31 +5,11 @@ Base class for standard HTML representation of data.
 
 import cgi
 
+import markdown
 from HyperText.HTML40 import *
 
 from .response import *
 from .representation import *
-
-try:
-    import markdown
-    def markdown_to_html(text):
-        if text:
-            return markdown.markdown(cgi.escape(text), output_format='html4')
-        else:
-            return ''
-except ImportError:                     # Fallback
-    def markdown_to_html(text):
-        if text:
-            return PRE(cgi.escape(text))
-        else:
-            return ''
-
-def safe(text):
-    "Return text after escaping for '&', '>' and '<' characters."
-    if text:
-        return cgi.escape(text)
-    else:
-        return text
 
 
 class BaseHtmlRepresentation(Representation):
@@ -147,7 +127,7 @@ class BaseHtmlRepresentation(Representation):
                      href=self.data['application']['href'])
 
     def get_descr(self):
-        return markdown_to_html(self.data.get('descr'))
+        return self.to_html(self.data.get('descr'))
 
     def get_navigation(self):
         table = TABLE()
@@ -268,9 +248,19 @@ class BaseHtmlRepresentation(Representation):
                                  src=self.get_url(script)))
         return result
 
-    def safe_text(self, text):
-        "Return text after escaping for '&', '>' and '<' characters."
-        return safe(text)
+    def safe(self, text):
+        "Return text after escaping '&', '>' and '<' characters."
+        if text:
+            return cgi.escape(text)
+        else:
+            return ''
+
+    def to_html(self, text):
+        "Format the text into HTML, using Markdown formatting."
+        if text:
+            return markdown.markdown(cgi.escape(text), output_format='html4')
+        else:
+            return ''
 
 
 class FormHtmlMixin(object):
@@ -281,34 +271,31 @@ class FormHtmlMixin(object):
         formdata = self.data['form']
         fields = formdata['fields']
         values = formdata.get('values', dict())
-        table = TABLE()
         required = self.get_icon('required') or 'required'
         multipart = False
+        table = TABLE()
         for field in fields:
             if field['type'] == 'hidden': continue
             multipart = multipart or field['type'] == 'file'
             try:
-                current = values[field['name']]
+                default = values[field['name']]
             except KeyError:
-                current = field.get('default')
+                default = field.get('default')
+            # Allows extension to other input field types
+            method = getattr(self, "get_element_%s" % field['type'])
+            element = method(field, default=default)
             title = field.get('title')
             if title is None:           # Allow empty string as title
                 title = field['name']
-            try:
-                panel = self.get_form_field_panel(field, current=current)
-            except KeyError:
-                panel = ELEMENT_LOOKUP[field['type']](field, current=current)
             table.append(TR(TH(title),
                             TD(field.get('required') and required or ''),
-                            TD(panel),
-                            TD(markdown_to_html(field.get('descr') or ''),
-                               klass='descr')))
+                            TD(element),
+                            TD(self.to_html(field.get('descr')),klass='descr')))
         hidden = []
-        element = ELEMENT_LOOKUP['hidden']
         for field in fields:
             if field['type'] != 'hidden': continue
-            current = values.get(field['name']) or field.get('default')
-            hidden.append(element(field, current=current))
+            default = values.get(field['name']) or field.get('default')
+            hidden.append(self.get_element_hidden(field, default))
         result = DIV(P(FORM(
             FIELDSET(LEGEND(formdata.get('title', '')),
                      table,
@@ -325,96 +312,126 @@ class FormHtmlMixin(object):
                                  action=cancel)))
         return result
 
-    def get_form_field_panel(self, field, current=None):
-        """Return a custom panel for the given field in the form.
-        Raise KeyError if no custom panel defined for the field;
-        ELEMENT_LOOKUP will then be used instead.
-        """
-        raise KeyError
-
-
-ELEMENT_LOOKUP = dict()
-
-class Input(object):
-    "INPUT element."
-
-    translations = dict(length='size')
-
-    def __init__(self, type, **params):
-        self.type = type
-        self.params = params.copy()
-
-    def __call__(self, field, current=None):
+    def get_elem_kwargs(self, field, **params):
+        "Return the standard keyword arguments for an input element."
         kwargs = dict(name=field['name'])
-        id = field.get('id')
-        if id is not None:
-            kwargs['id'] = id
-        for key in self.params:
-            try:
-                item = field[key]
-            except KeyError:
-                item = self.params[key]
-            if item is not None:
-                kwargs[self.translations.get(key, key)] = item
-        if current is not None:
-            kwargs['value'] = current
-        return INPUT(type=self.type, **kwargs)
+        for key, value in params.iteritems():
+            if value is not None:
+                kwargs[key] = value
+        for key in ['id', 'default', 'length', 'maxlength']:
+            value = field.get(key)
+            if value is not None:
+                kwargs[key] = value
+        try:                            # Illogically named parameters
+            kwargs['value'] = kwargs.pop('default')
+        except KeyError:
+            pass
+        try:
+            kwargs['size'] = kwargs.pop('length')
+        except KeyError:
+            pass
+        return kwargs
 
-ELEMENT_LOOKUP['string'] = Input('text', length=20, maxlength=100)
-ELEMENT_LOOKUP['datetime'] = Input('text', length=20, maxlength=20)
-ELEMENT_LOOKUP['password'] = Input('password', length=20, maxlength=100)
-ELEMENT_LOOKUP['integer'] = Input('text', length=10, maxlength=40)
-ELEMENT_LOOKUP['float'] = Input('text', length=20, maxlength=100)
-ELEMENT_LOOKUP['file'] = Input('file', length=20, maxlength=100)
-ELEMENT_LOOKUP['hidden'] = Input('hidden')
+    def get_element_hidden(self, field, default=None):
+        return INPUT(type='hidden',
+                     **self.get_elem_kwargs(field, default=default))
 
-def get_element_boolean(field, current=None):
-    if current is not None:
-        if current:
-            check_true = True
-            check_false = False
+    def get_element_string(self, field, default=None):
+        return INPUT(type='text', **self.get_elem_kwargs(field,
+                                                         default=default,
+                                                         length=20,
+                                                         maxlength=100))
+
+    def get_element_password(self, field, default=None):
+        return INPUT(type='password', **self.get_elem_kwargs(field,
+                                                             default=default,
+                                                             length=20,
+                                                             maxlength=40))
+
+    def get_element_integer(self, field, default=None):
+        return INPUT(type='text', **self.get_elem_kwargs(field,
+                                                         default=default,
+                                                         length=10,
+                                                         maxlength=40))
+
+    def get_element_float(self, field, default=None):
+        return INPUT(type='text', **self.get_elem_kwargs(field,
+                                                         default=default,
+                                                         length=20,
+                                                         maxlength=100))
+
+    def get_element_file(self, field, default=None):
+        return INPUT(type='file', **self.get_elem_kwargs(field,
+                                                         default=default,
+                                                         length=20,
+                                                         maxlength=100))
+
+    def get_element_boolean(self, field, default=None):
+        if default is not None:
+            if default:
+                check_true = True
+                check_false = False
+            else:
+                check_true = False
+                check_false = True
         else:
             check_true = False
-            check_false = True
-    else:
-        check_true = False
-        check_false = False
-    kwargs = dict(name=field['name'])
-    if field['id']:
-        kwargs['id'] = field['id']
-    return TABLE(TR(TD(INPUT(type='radio', value='true',
-                             checked=check_true, **kwargs),
-                       ' true '),
-                    TD(INPUT(type='radio', value='false',
-                             checked=check_false, **kwargs),
-                       ' false ')))
-ELEMENT_LOOKUP['boolean'] = get_element_boolean
+            check_false = False
+        kwargs = self.get_elem_kwargs(field)
+        kwargs.pop('value', None)
+        return TABLE(TR(TD(INPUT(type='radio', value='true',
+                                 checked=check_true, **kwargs),
+                           ' true '),
+                        TD(INPUT(type='radio', value='false',
+                                 checked=check_false, **kwargs),
+                           ' false ')))
 
-def get_element_checkbox(field, current=None):
-    kwargs = dict(name=field['name'])
-    if field['id']:
-        kwargs['id'] = field['id']
-    if current is not None:
-        current = bool(current)
-    return DIV(INPUT(type='checkbox', value='true',
-                     checked=current, **kwargs),
-               field.get('text') or '')
-ELEMENT_LOOKUP['checkbox'] = get_element_checkbox
+    def get_element_checkbox(self, field, default=None):
+        kwargs = self.get_elem_kwargs(field)
+        kwargs.pop('value', None)
+        if default is not None:
+            default = bool(default)
+        return DIV(INPUT(type='checkbox', value='true',
+                         checked=default, **kwargs),
+                   field.get('text') or '')
 
-def get_element_text(field, current=None):
-    kwargs = dict(name=field['name'])
-    if field['id']:
-        kwargs['id'] = field['id']
-    return TEXTAREA(current or '',
-                    rows=field.get('rows', 20),
-                    cols=field.get('cols', 80),
-                    **kwargs)
-ELEMENT_LOOKUP['text'] = get_element_text
+    def get_element_text(self, field, default=None):
+        kwargs = self.get_elem_kwargs(field, rows=20, cols=80)
+        kwargs.pop('value', None)
+        return TEXTAREA(default or '', **kwargs)
 
+    def get_element_select(self, field, default=None):
+        kwargs = self.get_elem_kwargs(field)
+        kwargs.pop('value', None)       # Set below
+        elems = []
+        if field['boxes']:
+            kwargs.pop('id', None) # 'id' cannot be set in multiple elements
+            for option in field['options']:
+                if isinstance(option, dict):
+                    value = option['value']
+                    title = option.get('title') or value
+                else:
+                    value = title = option
+                elems.append(TR(TD(INPUT(type='radio',
+                                         value=value,
+                                         checked=value==default or None,
+                                         **kwargs)),
+                                TD(" %s" % title)))
+            return TABLE(*elems)
+        else:
+            for option in field['options']:
+                if isinstance(option, dict):
+                    value = option['value']
+                    title = option.get('title') or value
+                else:
+                    value = title = option
+                elems.append(OPTION(title, value=value,
+                                    selected=value==default or None))
+            return SELECT(*elems, **kwargs)
 
-def get_element_select(field, current=None):
-    elems = []
-    if field['boxes']:
+    def get_element_multiselect(self, field, default=None):
+        if not default: default = []
+        elems = []
         for option in field['options']:
             if isinstance(option, dict):
                 value = option['value']
@@ -422,43 +439,9 @@ def get_element_select(field, current=None):
             else:
                 value = title = option
             # 'id' cannot be set in multiple elements
-            elems.append(TR(TD(INPUT(type='radio',
-                                     name=field['name'],
-                                     value=value,
-                                     checked=value==current or None,
-                                     **kwargs)),
-                            TD(" %s" % title)))
-        return TABLE(*elems)
-    else:
-        kwargs = dict(name=field['name'])
-        if field['id']:
-            kwargs['id'] = field['id']
-        for option in field['options']:
-            if isinstance(option, dict):
-                value = option['value']
-                title = option.get('title') or value
-            else:
-                value = title = option
-            elems.append(OPTION(title, value=value,
-                                selected=value==current or None))
-        return SELECT(*elems, **kwargs)
-ELEMENT_LOOKUP['select'] = get_element_select
-
-
-def get_element_multiselect(field, current=None):
-    if not current: current = []
-    elems = []
-    for option in field['options']:
-        if isinstance(option, dict):
-            value = option['value']
-            title = option.get('title') or value
-        else:
-            value = title = option
-        # 'id' cannot be set in multiple elements
-        elems.append(DIV(INPUT(type='checkbox',
-                               name=field['name'],
-                               value=value,
-                               checked=value in current),
-                         title))
-    return DIV(*elems)
-ELEMENT_LOOKUP['multiselect'] = get_element_multiselect
+            elems.append(DIV(INPUT(type='checkbox',
+                                   name=field['name'],
+                                   value=value,
+                                   checked=value in default),
+                             title))
+        return DIV(*elems)
