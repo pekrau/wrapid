@@ -11,33 +11,28 @@ from cStringIO import StringIO
 logging.basicConfig(level=logging.DEBUG)
 
 import wrapid
-from wrapid.fields import *
-from wrapid.response import *
-from wrapid.application import Application
-from wrapid.resource import Resource, GET, POST
-from wrapid.static import *
+from wrapid.application import *
+from wrapid.methods import *
+from wrapid.file import *
 from wrapid.documentation import *
 from wrapid.html_representation import * # Warning: potential 'HEAD' collision!
 from wrapid.json_representation import JsonRepresentation
 from wrapid.text_representation import TextRepresentation
 
 
-DIR_PATH = os.path.dirname(__file__)
-
-
 class MethodMixin(object):
     "Mixin class providing the links data for all HTTP method classes."
 
-    def get_data_links(self, resource, request, application):
+    def get_data_links(self, request):
         "Return the links data for the response."
         return [dict(title='Debug',
-                     href=application.get_url('debug')),
+                     href=request.application.get_url('debug')),
                 dict(title='Crash',
-                     href=application.get_url('crash')),
+                     href=request.application.get_url('crash')),
                 dict(title='Input',
-                     href=application.get_url('input')),
+                     href=request.application.get_url('input')),
                 dict(title='Documentation: API',
-                     href=application.get_url('doc'))]
+                     href=request.application.get_url('doc'))]
 
 
 class HomeHtmlRepresentation(BaseHtmlRepresentation):
@@ -51,10 +46,11 @@ class GET_Home(MethodMixin, GET):
                 JsonRepresentation,
                 HomeHtmlRepresentation]
 
-    def get_data_resource(self, resource, request, application):
+    def get_data_resource(self, request):
         "Return the data dictionary for the response."
         try:
-            descr = open(os.path.join(DIR_PATH, 'README.md')).read()
+            dirpath = os.path.dirname(__file__)
+            descr = open(os.path.join(dirpath, 'README.md')).read()
         except IOError:
             descr = 'Error: Could not find the wrapid README.rd file.'
         return dict(descr=descr)
@@ -84,6 +80,7 @@ class FormHtmlRepresentation(FormHtmlMixin, BaseHtmlRepresentation):
 
 
 class GET_Input(MethodMixin, GET):
+    "Display page for input of TAB- or comma-delimited text."
 
     outreprs = [TextRepresentation,
                 JsonRepresentation,
@@ -97,16 +94,17 @@ class GET_Input(MethodMixin, GET):
               TextField('text', required=True,
                         descr='Delimited text for table.'))
 
-    def get_data_resource(self, resource, request, application):
+    def get_data_resource(self, request):
         return dict(title='Input',
                     descr='Test input of text to be parsed into tabular form,'
                     ' row by row using a delimiter (tab or comma).',
                     form=dict(title='Input text',
                               fields=self.get_data_fields(),
-                              href=resource.url,
-                              cancel=application.url))
+                              href=request.url,
+                              cancel=request.application.url))
 
 class POST_Input(MethodMixin, POST):
+    "Display results, and page for input of TAB- or comma-delimited text."
 
     outreprs = [TextRepresentation,
                 JsonRepresentation,
@@ -114,7 +112,7 @@ class POST_Input(MethodMixin, POST):
 
     fields = GET_Input.fields
 
-    def handle(self, resource, request, application):
+    def handle(self, request):
         values = self.parse_fields(request)
         if values['delimiter'] == 'comma':
             delimiter = ','
@@ -124,20 +122,20 @@ class POST_Input(MethodMixin, POST):
                             delimiter=delimiter)
         self.rows = list(reader)
 
-    def get_data_resource(self, resource, request, application):
+    def get_data_resource(self, request):
         return dict(title='Input',
                     rows=self.rows,
                     form=dict(title='Paste in text',
                               fields=self.get_data_fields(),
-                              href=resource.url,
-                              quit=application.url))
+                              href=request.url,
+                              quit=request.application.url))
 
 
-def debug(resource, request, application):
+def debug(request):
     "Return information about the request data. Function for HTTP method."
     response = HTTP_OK(content_type='text/plain')
-    response.append("Application URL: %s\n" % application.url)
-    response.append("   Resource URL: %s\n\n" % resource.url)
+    response.append("Application URL: %s\n" % request.application.url)
+    response.append("   Resource URL: %s\n\n" % request.url)
     response.append('HTTP headers\n------------\n\n')
     for item in sorted(request.headers.items()):
         response.append("%s: %s\n" % item)
@@ -148,12 +146,11 @@ def debug(resource, request, application):
 
 debug.mimetype = 'text/plain'           # Func attr to specify mimetype
 
-def crash(resource, request, application):
+def crash(request):
     "Force an internal server error. Function for HTTP method."
     response = HTTP_OK(content_type='text/plain')
     response.append('This response will not be returned.')
     raise ValueError('explicitly forced error')
-
 
 
 application = Application(name='Wrapid example',
@@ -165,13 +162,17 @@ application = Application(name='Wrapid example',
                           debug=True)
 
 
-application.append(Resource('/', type='Home', GET=GET_Home))
-application.append(Resource('/debug', type='Debug', GET=debug))
-application.append(Resource('/crash', type='Crash', GET=crash))
-application.append(Resource('/input', type='Input',
-                            GET=GET_Input,
-                            POST=POST_Input))
-application.append(Resource('/static/{filename}', type='File',
-                            GET=GET_Static(DIR_PATH)))
-application.append(Resource('/doc', type='Documentation API',
-                            GET=GET_WrapidApiDocumentation))
+application.add_resource('/', name='Home', GET=GET_Home)
+application.add_resource('/debug', name='Debug', GET=debug)
+application.add_resource('/crash', name='Crash', GET=crash)
+application.add_resource('/input', name='Input',
+                         GET=GET_Input,
+                         POST=POST_Input)
+
+class GET_File_static(GET_File):
+    dirpath = os.path.dirname(__file__)
+
+application.add_resource('/static/{filename}', name='File',
+                         GET=GET_File_static)
+application.add_resource('/doc', name='Documentation API',
+                         GET=GET_WrapidApiDocumentation)

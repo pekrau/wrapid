@@ -60,7 +60,7 @@ def to_bool(value):
 
 def url_build(*segments, **query):
     "Build a URL from the segments and the query."
-    url = '/'.join(segments)
+    url = '/'.join(map(str, segments))
     if query:
         items = dict([(k,v) for k,v in query.iteritems() if v is not None])
         return url + '?' + urllib.urlencode(items)

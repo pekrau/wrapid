@@ -18,7 +18,7 @@ class Response(Exception):
         self.headers = wsgiref.headers.Headers([(k.replace('_', '-'), v)
                                                 for (k,v) in kwargs.items()
                                                 if v is not None])
-        self.content = map(str, args)
+        self.content = list(args)
 
     def __str__(self):
         return "%s %s" % (self.http_code, httplib.responses[self.http_code])
@@ -31,10 +31,10 @@ class Response(Exception):
         return self
 
     def __iter__(self):
-        return iter(self.content)
+        return iter(map(str, self.content))
 
     def append(self, data):
-        self.content.append(str(data))
+        self.content.append(data)
 
 
 class HTTP_SUCCESS(Response): pass

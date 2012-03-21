@@ -6,10 +6,9 @@ Documentation: static or produced for the web resource API by introspection.
 import time
 import os.path
 
-from .resource import *
-from .utils import HTTP_METHODS
-from .utils import DATETIME_WEB_FORMAT
+from .methods import *
 from .html_representation import *
+from .utils import HTTP_METHODS, DATETIME_WEB_FORMAT
 
 
 class GET_Documentation(GET):
@@ -17,14 +16,18 @@ class GET_Documentation(GET):
     The inheriting class must specify the output representations.
     """
 
-    def __init__(self, dirpath, cache_control=None, descr=None):
-        super(GET_Documentation, self).__init__(descr=descr)
-        self.dirpath = dirpath
-        self.cache_control = cache_control
+    # To be modified in an inheriting class.
+    dirpath       = None
+    cache_control = None
 
-    def get_data_resource(self, resource, request, application):
+    def prepare(self, request):
+        # Default dirpath, in case class variable is not redefined
+        if not self.dirpath:
+            self.dirpath = os.path.join(os.path.dirname(__file__), 'docs')
+
+    def get_data_resource(self, request):
         "Return the dictionary with the resource-specific response data."
-        filename = resource.variables['filename']
+        filename = request.variables['filename']
         filename = os.path.basename(filename) # Security
         filepath = os.path.join(self.dirpath, filename) + '.md'
         if not os.path.exists(filepath):
@@ -140,15 +143,14 @@ class GET_ApiDocumentation(GET):
     to define the HTML representation.
     """
 
-    def get_data_resource(self, resource, request, application):
+    def get_data_resource(self, request):
         "Return the data dictionary for the response."
-        data = dict(title="%s %s API Documentation" % (application.name,
-                                                       application.version),
-                    resource=resource.type,
-                    href=resource.url,
+        data = dict(title="%s %s API Documentation" %
+                    (request.application.name, request.application.version),
+                    href=request.url,
                     text="""This is a description of the application
-programming interface (API) for this web resource. It is produced automatically
-by a procedure that performs introspection on the Python source code.
+programming interface (API) for this web resource. It is produced
+automatically by introspection on the Python source code.
 
 The design of the web resource is such that the set of URLs is the same for
 the API and for the human user agents (browsers). This reduces complexity
@@ -156,8 +158,8 @@ and increases clarity. Usually, browsers request HTML representations,
 while the JSON representation is intended for programmatic user agents.
 The different representations contain the same logical data.""")
         data['resources'] = []
-        for resource in application.resources:
-            resourcedata = dict(resource=resource.type,
+        for resource in request.application.resources:
+            resourcedata = dict(resource=resource.name,
                                 href=resource.urlpath_template,
                                 descr=str(resource.descr)) # Must eval property!
             methoddata = resourcedata.setdefault('methods', dict())
@@ -166,11 +168,7 @@ The different representations contain the same logical data.""")
                     method = resource.methods[name]
                 except KeyError:
                     continue
-                try:
-                    descr = str(method.descr) # Must eval property!
-                except (TypeError, AttributeError):
-                    descr = method.__doc__ or None
-                methoddata[name] = dict(descr=descr)
+                methoddata[name] = dict(descr=method.__doc__ or None)
 
                 # Input fields: query parameters or form fields
                 if isinstance(method, FieldsMethodMixin):

@@ -4,17 +4,16 @@ Application class: WSGI interface.
 """
 
 import logging
+import re
+import inspect
+import urlparse
 import traceback
 import wsgiref.util
 import wsgiref.headers
-import cgi
-import json
-import Cookie
-import urlparse
 
-from .response import *
-from . import mimeparse
-from .utils import url_build
+from .request import *
+from .responses import *
+from .utils import HTTP_METHODS, url_build
 
 
 class Application(object):
@@ -39,20 +38,39 @@ class Application(object):
         self.host = host or self.host
         self.debug = debug or self.debug
         self.resources = []
+        self.url = None
 
     def __call__(self, environ, start_response):
         "WSGI interface; this method is called for each HTTP request."
         self.url = wsgiref.util.application_uri(environ)
-        self.path = urlparse.urlparse(self.url).path or '/'
-        request = self.get_request(environ)
-        logging.debug("wrapid: HTTP method '%s', URL path '%s'",
-                      request.http_method,
-                      request.urlpath)
+        self.path = urlparse.urlparse(self.url).path
+        request = Request(environ)
+        request.application = self
+        ## logging.debug("wrapid: HTTP method '%s', URL path '%s'",
+        ##               request.http_method,
+        ##               request.urlpath)
         try:
-            resource = self.get_resource(request.urlpath)
-            if resource is None:
+            for resource in self.resources:
+                match = resource.match(request.urlpath)
+                if match:
+                    request.name = resource.name
+                    request.variables.update(match.groupdict())
+                    logging.debug("application %s %s", id(request), request.urlpath)
+                    break
+            else:
                 raise HTTP_NOT_FOUND
-            response = resource(request, self)
+            request.remove_format_url()
+            try:
+                method = resource.methods[request.http_method]
+            except KeyError:
+                allow = ','.join(resource.methods.keys())
+                if request.http_method == 'OPTIONS':
+                    return HTTP_NO_CONTENT(Allow=allow)
+                else:
+                    raise HTTP_METHOD_NOT_ALLOWED(Allow=allow)
+            if inspect.isclass(method):
+                method = method()
+            response = method(request)
             return response(start_response)
         except HTTP_UNAUTHORIZED, error: # Do not log, nor give browser output
             logging.debug("wrapid: HTTP %s", error)
@@ -78,121 +96,82 @@ class Application(object):
                 error.append(tb)
             return error(start_response)
 
-    def get_request(self, environ):
-        "Get the request data in pre-processed form."
-        return Request(environ)
-
-    def append(self, resource):
-        "Append a resource to the list of available resources."
-        self.resources.append(resource)
-
-    def get_resource(self, urlpath):
-        """Get the resource that matches the given URL path.
-        The list of resources is searched in order for a URL path
-        template that matches the request URL path.
-        """
-        for resource in self.resources:
-            if resource.urlpath_template_match(urlpath): return resource
+    def add_resource(self, url_template, name=None, descr=None, **methods):
+        "Define the HTTP method handlers for the given URL template."
+        self.resources.append(Resource(url_template, name=name, descr=descr,
+                                       **methods))
 
     def get_url(self, *segments, **query):
         """Synthesize an absolute URL from the application URL
         and the given path segments and query.
         """
-        segments = [self.url] + [str(s) for s in segments]
+        assert self.url
+        segments = [self.url] + list(segments)
         return url_build(*segments, **query)
 
 
-class Request(object):
-    "HTTP request data container."
+class Resource(object):
+    """Handle access to a resource specified by the template URL path.
+    Container for the HTTP method handlers.
+    """
 
-    # The values must be in lower case.
-    HUMAN_USER_AGENT_SIGNATURES = ['mozilla', 'firefox', 'opera',
-                                   'chrome', 'safari', 'msie']
+    VARIABLE_RX = re.compile(r'\{([^/\}]+)\}')
 
-    def __init__(self, environ):
-        "Standard setup of attributes from the HTTP input data."
-        self.environ = environ
-        self.urlpath = self.environ['PATH_INFO']
-        self.http_method = self.environ['REQUEST_METHOD']
-        self.human_user_agent = self.is_human_user_agent()
-        # Obtain the HTTP headers for the request.
-        self.headers = wsgiref.headers.Headers([])
-        for key in self.environ:
-            if key.startswith('HTTP_'):
-                name = '-'.join([p.capitalize() for p in key[5:].split('_')])
-                self.headers[name] = str(self.environ[key])
-        # Obtain the SimpleCookie instance for the request.
-        self.cookie = Cookie.SimpleCookie(self.environ.get('HTTP_COOKIE'))
-        # Input: Handle according to content type and HTTP request method
-        self.content_type = None
-        self.content_type_params = dict()
-        self.fields = cgi.FieldStorage() # Input parsed into CGI fields
-        self.json = None                 # Input after JSON decoding
-        self.data = None                 # Input as raw data
-        if self.http_method == 'GET':
-            self.handle_cgi_input()
-        elif self.http_method == 'POST':
-            self.handle_typed_input()
-            # Allow override of HTTP method
+    def __init__(self, urlpath_template, name=None, descr=None, **methods):
+        self.urlpath_template = urlpath_template
+        if urlpath_template in ['', '/']: # Special cases
+            pattern = '/?'
+        else:
+            pattern = urlpath_template
+        pattern = self.VARIABLE_RX.sub(self.replace_variable, pattern)
+        pattern += '(?P<FORMAT>\.\w{1,4})?'
+        pattern = "^%s$" % pattern
+        self.urlpath_rx = re.compile(pattern)
+        self.name = name
+        self._descr = descr
+        self.methods = dict()
+        for key, method in methods.items():
+            if key not in HTTP_METHODS:
+                raise ValueError("invalid method '%s'" % key)
+            if not (inspect.isclass(method) or inspect.isfunction(method)):
+                raise ValueError("method '%s' is neither class nor function"
+                                 % method)
+            self.methods[key] = method
+
+    def __str__(self):
+        return "%s (%s)" % (self.name, self.urlpath_template)
+
+    def match(self, urlpath):
+        return self.urlpath_rx.match(urlpath)
+
+    @property
+    def descr(self):
+        if self._descr:
+            return self._descr
+        for key in HTTP_METHODS:
             try:
-                http_method = self.get_value('http_method')
-                if not isinstance(http_method, basestring): raise KeyError
-                http_method = http_method.strip()
-                if not http_method: raise KeyError
+                return self.methods[key].__doc__
             except KeyError:
                 pass
+        return None
+
+    def replace_variable(self, match):
+        variable = match.group(1)
+        try:
+            variable, type = variable.split(':')
+        except ValueError:
+            expression = r'[^/]+'
+        else:
+            if type == 'uuid':          # UUID with or without dashes
+                expression = r'(?:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})|(?:[a-f0-9]{32})'
+            elif type == 'identifier':  # Identifier: alphabetical + word
+                expression = r'[a-zA-Z_]\w*'
+            elif type == 'date':        # ISO date YYYY-MM-DD
+                expression = r'\d{4}-\d{2}-\d{2}'
+            elif type == 'integer':
+                expression = r'[-+]?\d+'
+            elif type == 'path':
+                expression = r'.+'
             else:
-                self.http_method = http_method
-        elif self.http_method == 'PUT':
-            self.handle_typed_input()
-
-    def is_human_user_agent(self):
-        "Guess whether the user agent represents a human, i.e. a browser."
-        try:
-            user_agent = self.environ['HTTP_USER_AGENT'].lower()
-        except KeyError:
-            pass
-        else:
-            for signature in self.HUMAN_USER_AGENT_SIGNATURES:
-                if signature in user_agent:
-                    return True
-        return False
-
-    def handle_cgi_input(self):
-        self.fields = cgi.FieldStorage(environ=self.environ)
-
-    def handle_typed_input(self):
-        try:
-            content_type = self.environ['CONTENT_TYPE']
-        except KeyError:
-            return
-        content_type = mimeparse.parse_mime_type(content_type)
-        self.content_type = "%s/%s" % content_type[0:2]
-        logging.debug("wrapid: incoming content type: %s", self.content_type)
-        self.content_type_params = content_type[2]
-        if self.content_type in ('application/x-www-form-urlencoded',
-                                 'multipart/form-data'):
-            self.fields = cgi.FieldStorage(fp=self.environ['wsgi.input'],
-                                           environ=self.environ)
-        elif self.content_type == 'application/json':
-            try:
-                self.json = json.loads(self.environ['wsgi.input'].read())
-            except ValueError:
-                raise HTTP_BAD_REQUEST('invalid JSON')
-        else:
-            self.data = self.environ['wsgi.input'].read()
-
-    def get_value(self, name):
-        """Return the input item value by name.
-        If input is CGI, FieldStorage.getvalue() is used;
-        this returns None if the named field does not exist.
-        If input is JSON, then uses ordinary dictionary lookup;
-        an exception will be raised if the data is not a dictionary.
-        If input is of some other type, raise KeyError.
-        """
-        if self.fields:
-            return self.fields.getvalue(name)
-        elif self.json:
-            return self.json[name]
-        else:
-            raise KeyError('no named input items')
+                raise ValueError("unknown type in template variable: %s" % type)
+        return "(?P<%s>%s)" % (variable, expression)

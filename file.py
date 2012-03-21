@@ -1,56 +1,55 @@
 """ wrapid: Web Resource API server framework built on Python WSGI.
 
-Access to static files in a predetermined directory on the server.
+Access to files in a predetermined directory on the server.
 """
-
-import logging
 
 import os.path
 import mimetypes
 import time
 
-from .resource import *
+from .methods import *
 from .utils import DATETIME_WEB_FORMAT
 
 
-class GET_Static(GET):
-    """Return the specified static file from a predefined server directory.
+class GET_File(GET):
+    """Return the specified file from a predefined server directory.
     The mimetype of the response is determined by the file name extension.
     """
+
+    # To be modified in an inheriting class.
+    dirpath        = None
+    chunk_size     = 2**20
+    check_modified = True
+    cache_control  = None
 
     # Add missing mimetypes, or override those in mimetypes module
     MIMETYPES = dict(json='application/json')
 
-    def __init__(self, dirpath, cache_control=None, chunk_size=2**20,
-                 check_modified=True, descr=None):
-        assert chunk_size > 0
-        super(GET_Static, self).__init__(descr=descr)
-        self.dirpath = dirpath
-        self.cache_control = cache_control
-        self.chunk_size = chunk_size
-        self.check_modified = check_modified
-
-    def prepare(self, resource, request, application):
+    def prepare(self, request):
         self.headers = wsgiref.headers.Headers([])
-        filename = resource.variables['filename']
-        format = resource.variables.get('FORMAT')
+        # Default dirpath, in case class variable is not redefined
+        if not self.dirpath:
+            self.dirpath = os.path.join(os.path.dirname(__file__), 'static')
+        filename = request.variables['filename']
+        format = request.variables.get('FORMAT')
         if format:
             filename += format
         filename = filename.lstrip('./~') # Remove dangerous characters.
         self.filepath = os.path.join(self.dirpath, filename)
         if not os.path.exists(self.filepath):
-            logging.debug("static not exists '%s'", self.filepath)
             raise HTTP_NOT_FOUND
         if not os.path.isfile(self.filepath):
-            logging.debug("static not file '%s'", self.filepath)
             raise HTTP_NOT_FOUND
         mtime = os.path.getmtime(self.filepath)
         mod_file = time.strftime(DATETIME_WEB_FORMAT, time.gmtime(mtime))
-        self.headers.add_header('Last-Modified', mod_file)
         if self.check_modified:
             mod_since = request.headers['If-Modified-Since']
             if mod_since == mod_file:   # Don't bother comparing '<'.
                 raise HTTP_NOT_MODIFIED
+            else:
+                self.headers.add_header('Last-Modified', mod_file)
+        if self.cache_control:
+            self.headers.add_header('Cache-Control', self.cache_control)
         try:
             ext = os.path.splitext(self.filepath)[-1].lstrip('.')
             mimetype = self.MIMETYPES[ext]
@@ -59,14 +58,11 @@ class GET_Static(GET):
             if not mimetype:
                 mimetype = 'application/octet-stream'
         self.headers.add_header('Content-Type', mimetype)
-        if self.cache_control:
-            self.headers.add_header('Cache-Control', self.cache_control)
 
-    def get_response(self, resource, request, application):
+    def get_response(self, request):
         response = HTTP_OK_Static(**dict(self.headers))
-        response.chunk_size = self.chunk_size
         try:
-            response.open(self.filepath)
+            response.open(self.filepath, chunk_size=self.chunk_size)
         except IOError, msg:
             raise HTTP_NOT_FOUND
         return response
@@ -75,10 +71,9 @@ class GET_Static(GET):
 class HTTP_OK_Static(HTTP_OK):
     "Return the contents of a static file in chunks."
 
-    chunk_size = 2**20                  # 1,048,576
-
-    def open(self, filepath):
+    def open(self, filepath, chunk_size=2**20):
         self.file = open(filepath)
+        self.chunk_size = chunk_size
 
     def __iter__(self):
         return self

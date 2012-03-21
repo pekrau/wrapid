@@ -3,7 +3,7 @@
 Input field classes, for query of form parameter input.
 """
 
-from .response import HTTP_BAD_REQUEST
+from .responses import HTTP_BAD_REQUEST
 
 
 FIELD_CLASS_LOOKUP = dict()             # Key: type, value: class

@@ -8,8 +8,8 @@ import cgi
 import markdown
 from HyperText.HTML40 import *
 
-from .response import *
 from .representation import *
+from .utils import url_build
 
 
 class BaseHtmlRepresentation(Representation):
@@ -62,10 +62,8 @@ class BaseHtmlRepresentation(Representation):
 
     def get_url(self, *segments, **query):
         "Return a URL based on the application URL."
-        url = '/'.join([self.data['application']['href']] + list(segments))
-        if query:
-            url += '?' + urllib.urlencode(query)
-        return url
+        segments = [self.data['application']['href']] + list(segments)
+        return url_build(*segments, **query)
 
     def get_icon(self, name):
         """Return the IMG element for the named icon.

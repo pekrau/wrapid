@@ -5,7 +5,6 @@ Text representation of data using Python 'pprint'.
 
 import pprint
 
-from .response import *
 from .representation import *
 
 
@@ -16,11 +15,6 @@ class TextRepresentation(Representation):
     format = 'txt'
 
     def __call__(self, data):
-        self.modify(data)
         response = HTTP_OK(**self.get_http_headers())
-        response.append(pprint.pformat(data))
+        response.append(pprint.pprint(data, indent=2))
         return response
-
-    def modify(self, data):
-        "Modify the data before output."
-        pass

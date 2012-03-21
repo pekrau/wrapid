@@ -5,6 +5,8 @@ Abstract representation class.
 
 import wsgiref.headers
 
+from .responses import *
+
 
 class Representation(object):
     "Output representation generator for a specified mimetype."
