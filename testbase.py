@@ -8,6 +8,7 @@ import optparse
 import httplib
 import wsgiref.headers
 import json
+from xml.etree import ElementTree
 
 from wrapid.webresource import Webresource
 
@@ -29,6 +30,18 @@ class TestBase(unittest.TestCase):
             return json.loads(response.read())
         except ValueError:
             self.fail('invalid JSON data')
+
+    def get_txt_data(self, response):
+        try:
+            return eval(response.read())
+        except Exception:
+            self.fail('invalid TXT pprint data')
+
+    def get_xml_data(self, response):
+        try:
+            return ElementTree.fromstring(response.read())
+        except ValueError:
+            self.fail('invalid XML data')
 
 
 class TestExecutor(object):

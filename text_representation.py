@@ -16,5 +16,5 @@ class TextRepresentation(Representation):
 
     def __call__(self, data):
         response = HTTP_OK(**self.get_http_headers())
-        response.append(pprint.pprint(data, indent=2))
+        response.append(pprint.pformat(data, indent=2))
         return response
