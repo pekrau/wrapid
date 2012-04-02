@@ -1,19 +1,21 @@
 """ wrapid: Web Resource API server framework built on Python WSGI.
 
-Base class for standard HTML 4.0 representation of data.
+Base class for HTML5 representation of data.
+
+XXX HTML5-specific elements not yet used...
 """
 
 import cgi
 
 import markdown
-from HyperText.HTML40 import *
+from HyperText.HTML5 import *
 
 from .representation import *
 from .utils import url_build
 
 
 class BaseHtmlRepresentation(Representation):
-    "Base standard HTML representation of the resource."
+    "Base HTML5 representation of the resource."
 
     mimetype = 'text/html'
     format = 'html'
@@ -96,7 +98,7 @@ class BaseHtmlRepresentation(Representation):
 
     def get_head(self):
         head = HEAD(TITLE(self.get_title()),
-                    META(http_equiv='text/html; charset=utf-8'),
+                    META(charset='utf-8'),
                     META(http_equiv='Content-Script-Type',
                          content='application/javascript'))
         if isinstance(self.stylesheets, str):
