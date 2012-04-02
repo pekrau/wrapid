@@ -61,19 +61,20 @@ class FieldsMethodMixin(object):
 
     fields = ()
     
-    def get_data_fields(self, fields=None, skip=set(),
-                        default=dict(), fill=dict()):
+    def get_data_fields(self, fields=None, skip=set(), override=dict()):
         """Return the data for the fields to go into the 'form' entry
         of the resource data dictionary.
         If no fields are passed as argument, then the fields defined
         at class level are used.
+        The 'override' dictionary contains parameter values to override
+        those set for each Field instance.
         """
         fields = fields or self.fields
         result = []
         for field in fields:
             if field.name in skip: continue
-            result.append(field.get_data(default=default.get(field.name),
-                                         fill=fill.get(field.name, dict())))
+            result.append(field.get_data(override=override.get(field.name,
+                                                               dict())))
         return result
 
     def parse_fields(self, request, fields=None, skip=set(), additional=[]):

@@ -27,17 +27,17 @@ class Field(object):
     def __repr__(self):
         return "%s(%s)" % (self.__class__.__name__, self.name)
 
-    def get_data(self, default=None, fill=dict()):
-        "Return a dictionary containing the field definition."
-        if default is None:
-            default = fill.get('default', self.default)
+    def get_data(self, override=dict()):
+        """Return a dictionary containing the field definition.
+        The 'override' dictionary contains parameter values
+        overriding those set for the Field instance."""
         return dict(type=self.type,
                     name=self.name,
                     id=self.id,
                     title=self.title,
-                    required=fill.get('required', self.required),
-                    default=default,
-                    descr=fill.get('descr', self.descr))
+                    required=override.get('required', self.required),
+                    default=override.get('default', self.default),
+                    descr=override.get('descr', self.descr))
 
     def get_value(self, request, method):
         """Return the value converted to Python representation.
@@ -80,8 +80,8 @@ class CheckboxField(Field):
                                             descr=descr)
         self.text = text
 
-    def get_data(self, default=None, fill=dict()):
-        result = super(CheckboxField, self).get_data(default=default, fill=fill)
+    def get_data(self, override=dict()):
+        result = super(CheckboxField, self).get_data(override=override)
         result['text'] = self.text
         return result
 
@@ -134,8 +134,8 @@ class StringField(Field):
         self.length = length
         self.maxlength = maxlength
 
-    def get_data(self, default=None, fill=dict()):
-        result = super(StringField, self).get_data(default=default, fill=fill)
+    def get_data(self, override=dict()):
+        result = super(StringField, self).get_data(override=override)
         result['length'] = self.length
         result['maxlength'] = self.maxlength
         return result
@@ -201,9 +201,9 @@ class TextField(Field):
         self.rows = rows
         self.cols = cols
 
-    def get_data(self, default=None, fill=dict()):
+    def get_data(self, override=dict()):
         "Return a dictionary containing the field definition."
-        result = super(TextField, self).get_data(default=default, fill=fill)
+        result = super(TextField, self).get_data(override=override)
         result['rows'] = self.rows
         result['cols'] = self.cols
         return result
@@ -273,9 +273,9 @@ class SelectField(Field):
         self.boxes = boxes
         self.check = check
 
-    def get_data(self, default=None, fill=dict()):
-        result = super(SelectField, self).get_data(default=default, fill=fill)
-        result['options'] = fill.get('options', self.options)
+    def get_data(self, override=dict()):
+        result = super(SelectField, self).get_data(override=override)
+        result['options'] = override.get('options', self.options)
         result['boxes'] = self.boxes
         return result
 

@@ -46,16 +46,15 @@ class Application(object):
         self.path = urlparse.urlparse(self.url).path
         request = Request(environ)
         request.application = self
-        ## logging.debug("wrapid: HTTP method '%s', URL path '%s'",
-        ##               request.http_method,
-        ##               request.urlpath)
+        logging.debug("wrapid: HTTP method '%s', URL path '%s'",
+                      request.http_method,
+                      request.urlpath)
         try:
             for resource in self.resources:
                 match = resource.match(request.urlpath)
                 if match:
                     request.name = resource.name
                     request.variables.update(match.groupdict())
-                    logging.debug("application %s %s", id(request), request.urlpath)
                     break
             else:
                 raise HTTP_NOT_FOUND
