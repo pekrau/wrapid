@@ -27,7 +27,8 @@ module in your Apache2 installation, and add the contents of the file
 'apache2.cnf' (supplied in the distribution) to your Apache2 configuration
 file 'sites-available/default' (or similar).
 
-The wrapid framework is written in Python 2.6; 2.7 should also work.
+The wrapid framework is written in Python 2.6. The following source code
+packages are needed:
 
 - [https://github.com/pekrau/wrapid](https://github.com/pekrau/wrapid):
  Source code for the wrapid framework.

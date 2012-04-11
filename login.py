@@ -92,7 +92,7 @@ class GET_Login(Method):
                     teams=[],
                     properties=dict())
 
-    def handle(self, request):
+    def process(self, request):
         appname = request.application.name
         try:
             name, password = decode_authorization_header(request)

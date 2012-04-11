@@ -12,6 +12,7 @@ class TextRepresentation(Representation):
     "Text representation of the resource using Python 'pprint'."
 
     mimetype = 'text/plain'
+    charset = 'utf-8'
     format = 'txt'
 
     def __call__(self, data):

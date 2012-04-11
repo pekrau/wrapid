@@ -67,10 +67,9 @@ class Request(object):
             self.url = self.url[0:-len(format)]
 
     def undo_format_specifier(self, varname):
-        """The application code has determined that the FORMAT specifier
-        in the URL really is part of the resource identifier,
-        so undo the split by appending the FORMAT part to the variable
-        of the given name.
+        """The application code has determined that the FORMAT specifier in
+        the URL really is part of the resource identifier, so undo the split
+        by appending the FORMAT part to the variable of the given name.
         """
         self.variables[varname] += self.variables['FORMAT']
         self.url += self.variables['FORMAT']

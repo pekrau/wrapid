@@ -67,9 +67,12 @@ class Application(object):
                     return HTTP_NO_CONTENT(Allow=allow)
                 else:
                     raise HTTP_METHOD_NOT_ALLOWED(Allow=allow)
-            if inspect.isclass(method):
-                method = method()
-            response = method(request)
+            if inspect.isfunction(method):
+                response = method(request)
+            elif inspect.isclass(method):
+                response = method().respond(request)
+            else:
+                raise ValueError('invalid method implementation')
             return response(start_response)
         except HTTP_UNAUTHORIZED, error: # Do not log, nor give browser output
             logging.debug("wrapid: HTTP %s", error)
@@ -123,7 +126,7 @@ class Resource(object):
         else:
             pattern = urlpath_template
         pattern = self.VARIABLE_RX.sub(self.replace_variable, pattern)
-        pattern += '(?P<FORMAT>\.\w{1,4})?'
+        pattern += r'(?P<FORMAT>\.\w{1,4})?'
         pattern = "^%s$" % pattern
         self.urlpath_rx = re.compile(pattern)
         self.name = name
@@ -132,9 +135,13 @@ class Resource(object):
         for key, method in methods.items():
             if key not in HTTP_METHODS:
                 raise ValueError("invalid method '%s'" % key)
-            if not (inspect.isclass(method) or inspect.isfunction(method)):
-                raise ValueError("method '%s' is neither class nor function"
-                                 % method)
+            if inspect.isfunction(method):
+                pass
+            elif inspect.isclass(method):
+                if not hasattr(method, 'respond'):
+                    raise ValueError("method '%s' implementation class '%s'"
+                                     " lacks 'respond' method"
+                                     % (key, method))
             self.methods[key] = method
 
     def __str__(self):
@@ -155,22 +162,23 @@ class Resource(object):
         return None
 
     def replace_variable(self, match):
+        "Replace the variable specification with a regexp."
         variable = match.group(1)
         try:
             variable, type = variable.split(':')
-        except ValueError:
-            expression = r'[^/]+'
+        except ValueError:              # Any characters in a segment
+            expression = r'[^/]+?'
         else:
             if type == 'uuid':          # UUID with or without dashes
                 expression = r'(?:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})|(?:[a-f0-9]{32})'
             elif type == 'identifier':  # Identifier: alphabetical + word
-                expression = r'[a-zA-Z_]\w*'
+                expression = r'[a-zA-Z_]\w*?'
             elif type == 'date':        # ISO date YYYY-MM-DD
                 expression = r'\d{4}-\d{2}-\d{2}'
-            elif type == 'integer':
+            elif type == 'integer':     # Integer, optionally with sign
                 expression = r'[-+]?\d+'
-            elif type == 'path':
-                expression = r'.+'
+            elif type == 'path':        # Any characters, ignore segmentation
+                expression = r'.+?'
             else:
                 raise ValueError("unknown type in template variable: %s" % type)
         return "(?P<%s>%s)" % (variable, expression)

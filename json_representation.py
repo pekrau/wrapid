@@ -12,6 +12,7 @@ class JsonRepresentation(Representation):
     "JSON representation of the resource."
 
     mimetype = 'application/json'
+    charset = 'utf-8'
     format = 'json'
 
     def __call__(self, data):

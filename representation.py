@@ -12,12 +12,17 @@ class Representation(object):
     "Output representation generator for a specified mimetype."
 
     mimetype = None
+    charset = None
     format = None
     cache_control = 'max-age=3600'
 
     def __init__(self, descr=None):
+        assert self.mimetype
         self._descr = descr
-        self.headers = wsgiref.headers.Headers([('Content-Type',self.mimetype)])
+        mimetype = self.mimetype
+        if self.charset:
+            mimetype += "; charset=%s" % self.charset
+        self.headers = wsgiref.headers.Headers([('Content-Type', mimetype)])
 
     def get_http_headers(self):
         """Get the dictionary of HTTP headers,

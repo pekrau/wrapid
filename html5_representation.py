@@ -43,7 +43,9 @@ class BaseHtmlRepresentation(Representation):
                                      DIV(self.get_descr(), klass='descr'),
                                      DIV(self.get_content(), klass='content'),
                                      klass='body_middle'),
-                                  TD(TABLE(TR(TD(self.get_login(),
+                                  TD(TABLE(TR(TD(self.get_search(),
+                                                 klass='search')),
+                                           TR(TD(self.get_login(),
                                                  klass='login')),
                                            TR(TD(self.get_info(),
                                                  klass='info')),
@@ -203,8 +205,33 @@ class BaseHtmlRepresentation(Representation):
             else:
                 return INPUT(type=type, value=title)
 
+    def get_search(self):
+        # Rather ugly; should search href be specified directly in data?
+        for link in self.data['links']:
+            if link['title'].lower() == 'search':
+                return FORM(INPUT(type='text', name='terms',
+                                  size=20, maxlength=256),
+                            method='POST',
+                            action=link['href'])
+        else:
+            return ''
+
     def get_login(self):
-        return ''
+        login = self.data.get('login')
+        if not login or login == 'anonymous':
+            url = self.data.get('login_href')
+            if url:
+                origin = self.data.get('href', self.get_url()
+                return TABLE(TR(TD(FORM(self.get_button('Login'),
+                                        INPUT(type='hidden', name='href',
+                                              value=origin)),
+                                        method='GET',
+                                        action=url))))
+            else:
+                return ''
+        else:
+            return  DIV('Logged in as ',
+                        A(login, href=self.get_url('account', login)))
 
     def get_info(self):
         return ''

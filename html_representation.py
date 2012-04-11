@@ -16,6 +16,7 @@ class BaseHtmlRepresentation(Representation):
     "Base standard HTML representation of the resource."
 
     mimetype = 'text/html'
+    charset = 'utf-8'
     format = 'html'
 
     logo = None                         # Relative URL
@@ -41,7 +42,9 @@ class BaseHtmlRepresentation(Representation):
                                      DIV(self.get_descr(), klass='descr'),
                                      DIV(self.get_content(), klass='content'),
                                      klass='body_middle'),
-                                  TD(TABLE(TR(TD(self.get_login(),
+                                  TD(TABLE(TR(TD(self.get_search(),
+                                                 klass='search')),
+                                           TR(TD(self.get_login(),
                                                  klass='login')),
                                            TR(TD(self.get_info(),
                                                  klass='info')),
@@ -56,8 +59,7 @@ class BaseHtmlRepresentation(Representation):
                                width='100%'),
                          HR(),
                          self.get_footer(),
-                         self.get_scripts()),
-                    lang=self.lang)
+                         self.get_scripts()))
         response = HTTP_OK(**self.get_http_headers())
         response.append(str(DOCTYPE) + '\n')
         response.append(html)
@@ -96,7 +98,6 @@ class BaseHtmlRepresentation(Representation):
 
     def get_head(self):
         head = HEAD(TITLE(self.get_title()),
-                    META(http_equiv='text/html; charset=utf-8'),
                     META(http_equiv='Content-Script-Type',
                          content='application/javascript'))
         if isinstance(self.stylesheets, str):
@@ -201,8 +202,32 @@ class BaseHtmlRepresentation(Representation):
             else:
                 return INPUT(type=type, value=title)
 
+    def get_search(self):
+        # Rather ugly; should search href be specified directly in data?
+        for link in self.data['links']:
+            if link['title'].lower() == 'search':
+                return FORM(INPUT(type='text', name='terms',
+                                  size=20, maxlength=256),
+                            ## method='POST',
+                            action=link['href'])
+        else:
+            return ''
+
     def get_login(self):
-        return ''
+        login = self.data.get('login')
+        if not login or login == 'anonymous':
+            url = self.data.get('login_href')
+            if url:
+                return FORM(self.get_button('Login'),
+                            INPUT(type='hidden', name='href',
+                                  value=self.data.get('href', self.get_url())),
+                            method='GET',
+                            action=url)
+            else:
+                return ''
+        else:
+            return  DIV('Logged in as ',
+                        A(login, href=self.get_url('account', login)))
 
     def get_info(self):
         return ''
@@ -267,6 +292,9 @@ class FormHtmlMixin(object):
     "Mixin for HTML representation of the form page for data input."
 
     def get_content(self):
+        return self.get_form()
+
+    def get_form(self):
         "Generate the FORM element from the data."
         formdata = self.data['form']
         fields = formdata['fields']
@@ -296,20 +324,33 @@ class FormHtmlMixin(object):
             if field['type'] != 'hidden': continue
             default = values.get(field['name']) or field.get('default')
             hidden.append(self.get_element_hidden(field, default))
-        result = DIV(P(FORM(
-            FIELDSET(LEGEND(formdata.get('title', '')),
-                     table,
-                     DIV(*hidden),
-                     P(self.get_button(formdata.get('label', 'Submit')))),
-            enctype=multipart and 'multipart/form-data'
-                    or 'application/x-www-form-urlencoded',
-            method=formdata.get('method', 'POST'),
-            action=formdata['href'])))
-        cancel = formdata.get('cancel')
-        if cancel:
-            result.append(P(FORM(self.get_button('Cancel'),
-                                 method='GET',
-                                 action=cancel)))
+        title = formdata.get('title')
+        # Minimal input frame; no border and no cancel button
+        if title is None:
+            result = FORM(TABLE(TR(TD(table),
+                                   TD(self.get_button(formdata.get('label',
+                                                                   'Submit'))))),
+                          DIV(*hidden),
+                          enctype=multipart and 'multipart/form-data'
+                                  or 'application/x-www-form-urlencoded',
+                          method=formdata.get('method', 'POST'),
+                          action=formdata['href'])
+        # Ordinary input frame; border and proper buttons
+        else:
+            result = DIV(P(FORM(
+                FIELDSET(LEGEND(formdata.get('title', '')),
+                         table,
+                         DIV(*hidden),
+                         P(self.get_button(formdata.get('label', 'Submit')))),
+                enctype=multipart and 'multipart/form-data'
+                        or 'application/x-www-form-urlencoded',
+                method=formdata.get('method', 'POST'),
+                action=formdata['href'])))
+            cancel = formdata.get('cancel')
+            if cancel:
+                result.append(P(FORM(self.get_button('Cancel'),
+                                     method='GET',
+                                     action=cancel)))
         return result
 
     def get_elem_kwargs(self, field, **params):

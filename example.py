@@ -39,7 +39,7 @@ class HomeHtmlRepresentation(BaseHtmlRepresentation):
     stylesheets = ['static/standard.css']
 
 
-class GET_Home(MethodMixin, GET):
+class Home(MethodMixin, GET):
     "Home page for the web application."
 
     outreprs = [TextRepresentation,
@@ -112,7 +112,7 @@ class POST_Input(MethodMixin, POST):
 
     fields = GET_Input.fields
 
-    def handle(self, request):
+    def process(self, request):
         values = self.parse_fields(request)
         if values['delimiter'] == 'comma':
             delimiter = ','
@@ -162,7 +162,7 @@ application = Application(name='Wrapid example',
                           debug=True)
 
 
-application.add_resource('/', name='Home', GET=GET_Home)
+application.add_resource('/', name='Home', GET=Home)
 application.add_resource('/debug', name='Debug', GET=debug)
 application.add_resource('/crash', name='Crash', GET=crash)
 application.add_resource('/input', name='Input',

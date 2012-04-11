@@ -20,15 +20,18 @@ from . import mimeparse
 
 
 class Method(object):
-    """HTTP request method abstract base class.
-    An instance is callable, returning a response instance.
+    """Abstract base class for handling a HTTP request method.
+    The 'respond' method is called by the application for each request.
     """
 
-    def __call__(self, request):
-        "Handle the request and return a response instance."
+    def respond(self, request):
+        """Handle the request and return a response instance.
+        Raise an HTTP error if there is a problem.
+        Any other exception is considered a server failure.
+        """
         self.prepare(request)
         try:
-            self.handle(request)
+            self.process(request)
             return self.get_response(request)
         finally:
             self.finalize()
@@ -39,8 +42,9 @@ class Method(object):
         """
         pass
 
-    def handle(self, request):
-        """Handle the request; perform actions according to the request.
+    def process(self, request):
+        """Process the request; perform actions that modify the resource.
+        This must remain a no-op for the safe HTTP methods GET and HEAD.
         No actions by default.
         """
         pass
@@ -50,7 +54,7 @@ class Method(object):
         raise NotImplementedError
 
     def finalize(self):
-        """Perform finalization, e.g. database close.
+        """Perform finalizing actions, e.g. database close.
         No actions by default.
         """
         pass
@@ -59,7 +63,7 @@ class Method(object):
 class FieldsMethodMixin(object):
     "Mixin class providing field handling functions."
 
-    fields = ()
+    fields = []
     
     def get_data_fields(self, fields=None, skip=set(), override=dict()):
         """Return the data for the fields to go into the 'form' entry
@@ -99,13 +103,13 @@ class FieldsMethodMixin(object):
 class InreprsMethodMixin(object):
     "Mixin class providing incoming representation functions."
 
-    inreprs = ()                      # List of Representation classes
+    inreprs = []                      # List of Representation classes
 
 
 class OutreprsMethodMixin(object):
     "Mixin class providing outgoing representation functions."
 
-    outreprs = ()                     # List of Representation classes
+    outreprs = []                     # List of Representation classes
 
     def get_response(self, request):
         """Return the response instance.
@@ -140,6 +144,9 @@ class OutreprsMethodMixin(object):
             data['login'] = self.login['name']
         except AttributeError:
             pass
+        if hasattr(self, 'set_login'):
+            # Note: Assumption!
+            data['login_href'] = request.application.get_url('login')
         return data
 
     def get_data_links(self, request):
