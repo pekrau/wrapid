@@ -148,7 +148,7 @@ class GET_ApiDocumentation(GET):
         data = dict(title="%s %s API Documentation" %
                     (request.application.name, request.application.version),
                     href=request.url,
-                    text="""This is a description of the application
+                    text="""This is a description of the RESTful application
 programming interface (API) for this web resource. It is produced
 automatically by introspection of the Python source code.
 
