@@ -68,7 +68,7 @@ class LoginMixin(object):
         raise KeyError
 
 
-class GET_Login(Method):
+class Login(Method):
     "Perform login to an account. Basic Authentication."
 
     # To be modified in an inheriting class

@@ -191,16 +191,16 @@ class BaseHtmlRepresentation(Representation):
     def get_button(self, title, type='submit', onclick=None):
         "Get the button for the given type of action."
         icon = self.get_icon(title.split()[0].lower())
-        if icon:
-            if onclick:
-                return BUTTON(icon, title, type=type, onclick=onclick)
-            else:
-                return BUTTON(icon, title, type=type)
-        else:
+        if icon is None:
             if onclick:
                 return INPUT(type=type, value=title, onclick=onclick)
             else:
                 return INPUT(type=type, value=title)
+        else:
+            if onclick:
+                return BUTTON(icon, title, type=type, onclick=onclick)
+            else:
+                return BUTTON(icon, title, type=type)
 
     def get_search(self):
         # Rather ugly; should search href be specified directly in data?
@@ -337,7 +337,7 @@ class FormHtmlMixin(object):
                           action=formdata['href'])
         # Ordinary input frame; border and proper buttons
         else:
-            result = DIV(P(FORM(
+            result = DIV(FORM(
                 FIELDSET(LEGEND(formdata.get('title', '')),
                          table,
                          DIV(*hidden),
@@ -345,7 +345,7 @@ class FormHtmlMixin(object):
                 enctype=multipart and 'multipart/form-data'
                         or 'application/x-www-form-urlencoded',
                 method=formdata.get('method', 'POST'),
-                action=formdata['href'])))
+                action=formdata['href']))
             cancel = formdata.get('cancel')
             if cancel:
                 result.append(P(FORM(self.get_button('Cancel'),

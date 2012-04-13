@@ -150,7 +150,7 @@ class GET_ApiDocumentation(GET):
                     href=request.url,
                     text="""This is a description of the application
 programming interface (API) for this web resource. It is produced
-automatically by introspection on the Python source code.
+automatically by introspection of the Python source code.
 
 The design of the web resource is such that the set of URLs is the same for
 the API and for the human user agents (browsers). This reduces complexity

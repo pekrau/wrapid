@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.DEBUG)
 import wrapid
 from wrapid.application import *
 from wrapid.methods import *
-from wrapid.file import *
+from wrapid.file import File
 from wrapid.documentation import *
 from wrapid.html_representation import * # Warning: potential 'HEAD' collision!
 from wrapid.json_representation import JsonRepresentation
@@ -61,7 +61,7 @@ class ApiDocumentationHtmlRepresentation(ApiDocumentationHtmlMixin,
     stylesheets = ['static/standard.css']
 
 
-class GET_WrapidApiDocumentation(MethodMixin, GET_ApiDocumentation):
+class ApiDocumentation(MethodMixin, GET_ApiDocumentation):
     "Produce the documentation for the web resource API by introspection."
 
     outreprs = [TextRepresentation,
@@ -165,14 +165,18 @@ application = Application(name='Wrapid example',
 application.add_resource('/', name='Home', GET=Home)
 application.add_resource('/debug', name='Debug', GET=debug)
 application.add_resource('/crash', name='Crash', GET=crash)
-application.add_resource('/input', name='Input',
+application.add_resource('/input',
+                         name='Input',
                          GET=GET_Input,
                          POST=POST_Input)
 
-class GET_File_static(GET_File):
+class StaticFile(File):
+    "Return the specified file from a predefined server directory."
     dirpath = os.path.dirname(__file__)
 
-application.add_resource('/static/{filename}', name='File',
-                         GET=GET_File_static)
-application.add_resource('/doc', name='Documentation API',
-                         GET=GET_WrapidApiDocumentation)
+application.add_resource('/static/{filename}',
+                         name='File',
+                         GET=StaticFile)
+application.add_resource('/doc',
+                         name='Documentation API',
+                         GET=ApiDocumentation)

@@ -5,6 +5,7 @@ Various utility functions.
 
 import time
 import urllib
+import unicodedata
 
 
 HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD']
@@ -57,6 +58,11 @@ def to_bool(value):
         return False
     else:
         raise ValueError("invalid literal '%s' for boolean" % value)
+
+def to_ascii(value):
+    "Convert any non-ASCII character to its closest equivalent."
+    value = unicode(value)
+    return unicodedata.normalize('NFKD', value).encode('ascii', 'ignore')
 
 def url_build(*segments, **query):
     "Build a URL from the segments and the query."
