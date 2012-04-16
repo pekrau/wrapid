@@ -32,6 +32,10 @@ class File(GET):
             self.dirpath = self.get_dirpath(request)
         self.filepath = self.get_filepath(request)
         self.fullpath = os.path.join(self.dirpath, self.filepath)
+        self.fullpath = os.path.normpath(self.fullpath)
+        # Security: disallow navigating outside of directory
+        if not self.fullpath.startswith(os.path.normpath(self.dirpath)):
+            raise HTTP_NOT_FOUND
         if not os.path.exists(self.fullpath):
             raise HTTP_NOT_FOUND
         if not os.path.isfile(self.fullpath):
@@ -69,7 +73,7 @@ class File(GET):
         format = request.variables.get('FORMAT')
         if format:
             filepath += format
-        return filepath.lstrip('./~')   # Remove dangerous characters.
+        return filepath
 
     def get_response(self, request):
         response = HTTP_OK_Static(**dict(self.headers))

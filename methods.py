@@ -38,14 +38,14 @@ class Method(object):
 
     def prepare(self, request):
         """Perform preparatory actions, e.g. login, or database connect.
-        No actions by default.
+        No action by default.
         """
         pass
 
     def process(self, request):
         """Process the request; perform actions that modify the resource.
         This must remain a no-op for the safe HTTP methods GET and HEAD.
-        No actions by default.
+        No action by default.
         """
         pass
 
@@ -55,7 +55,7 @@ class Method(object):
 
     def finalize(self):
         """Perform finalizing actions, e.g. database close.
-        No actions by default.
+        No action by default.
         """
         pass
 

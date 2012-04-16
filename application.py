@@ -67,13 +67,17 @@ class Application(object):
                     return HTTP_NO_CONTENT(Allow=allow)
                 else:
                     raise HTTP_METHOD_NOT_ALLOWED(Allow=allow)
-            if inspect.isfunction(method):
-                response = method(request)
-            elif inspect.isclass(method):
-                response = method().respond(request)
-            else:
-                raise ValueError('invalid method implementation')
-            return response(start_response)
+            try:
+                self.prepare(request)
+                if inspect.isfunction(method):
+                    response = method(request)
+                elif inspect.isclass(method):
+                    response = method().respond(request)
+                else:
+                    raise ValueError('invalid HTTP request method handler')
+                return response(start_response)
+            finally:
+                self.finalize(request)
         except HTTP_UNAUTHORIZED, error: # Do not log, nor give browser output
             logging.debug("wrapid: HTTP %s", error)
             return error(start_response)
@@ -97,6 +101,18 @@ class Application(object):
                 error.append('\n')
                 error.append(tb)
             return error(start_response)
+
+    def prepare(self, request):
+        """Application-wide preparatory actions, e.g. database connect.
+        No action by default.
+        """
+        pass
+
+    def finalize(self, request):
+        """Application-wide finalizin actions, e.g. database close..
+        No action by default.
+        """
+        pass
 
     def add_resource(self, url_template, name=None, descr=None, **methods):
         "Define the HTTP method handlers for the given URL template."
