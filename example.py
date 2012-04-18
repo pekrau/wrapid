@@ -18,6 +18,7 @@ from wrapid.documentation import *
 from wrapid.html_representation import * # Warning: potential 'HEAD' collision!
 from wrapid.json_representation import JsonRepresentation
 from wrapid.text_representation import TextRepresentation
+from wrapid.xml_representation import XmlRepresentation
 
 
 class MethodMixin(object):
@@ -84,6 +85,7 @@ class GET_Input(MethodMixin, GET):
 
     outreprs = [TextRepresentation,
                 JsonRepresentation,
+                XmlRepresentation,
                 FormHtmlRepresentation]
 
     fields = (SelectField('delimiter',
@@ -102,6 +104,7 @@ class GET_Input(MethodMixin, GET):
                               fields=self.get_data_fields(),
                               href=request.url,
                               cancel=request.application.url))
+
 
 class POST_Input(MethodMixin, POST):
     "Display results, and page for input of TAB- or comma-delimited text."
@@ -174,7 +177,7 @@ class StaticFile(File):
     "Return the specified file from a predefined server directory."
     dirpath = os.path.dirname(__file__)
 
-application.add_resource('/static/{filename}',
+application.add_resource('/static/{filepath}',
                          name='File',
                          GET=StaticFile)
 application.add_resource('/doc',

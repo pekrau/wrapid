@@ -1,6 +1,6 @@
 """ wrapid: Web Resource API server framework built on Python WSGI.
 
-JSON representation of data.
+JSON representation.
 """
 
 import json

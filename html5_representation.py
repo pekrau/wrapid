@@ -1,6 +1,6 @@
 """ wrapid: Web Resource API server framework built on Python WSGI.
 
-Base class for HTML5 representation of data.
+Base class for HTML5 representation.
 
 XXX HTML5-specific elements not yet used...
 """

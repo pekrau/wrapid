@@ -1,6 +1,6 @@
 """ wrapid: Web Resource API server framework built on Python WSGI.
 
-Text representation of data using Python 'pprint'.
+Text representation using Python 'pprint'.
 """
 
 import pprint

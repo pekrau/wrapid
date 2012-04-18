@@ -1,6 +1,6 @@
 """ wrapid: Web Resource API server framework built on Python WSGI.
 
-Base class for standard HTML 4.0 representation of data.
+Base class for standard HTML 4.0 representation.
 """
 
 import cgi
@@ -132,7 +132,7 @@ class BaseHtmlRepresentation(Representation):
 
     def get_navigation(self):
         table = TABLE()
-        current = None
+        current_section = None
         items = []
         for link in self.data.get('links', []):
             title = link['title']
@@ -140,18 +140,22 @@ class BaseHtmlRepresentation(Representation):
                 section, name = title.split(':', 1)
             except ValueError:
                 if items:
-                    table.append(TR(TD(UL(*items))))
+                    if current_section:
+                        table.append(TR(TD(current_section, UL(*items))))
+                    else:
+                        table.append(TR(TD(UL(*items))))
+                        current_section = None
                     items = []
                 table.append(TR(TD(A(title, href=link['href']))))
             else:
-                if current != section:
-                    if current and items:
-                        table.append(TR(TD(current, UL(*items))))
+                if current_section != section:
+                    if current_section and items:
+                        table.append(TR(TD(current_section, UL(*items))))
                     items = []
-                    current = section
+                    current_section = section
                 items.append(LI(A(name, href=link['href'])))
         if items:
-            table.append(TR(TD(current, UL(*items))))
+            table.append(TR(TD(current_section, UL(*items))))
         return table
 
     def get_content(self):
