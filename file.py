@@ -21,6 +21,7 @@ class File(GET):
     chunk_size     = 2**20
     check_modified = True
     cache_control  = None
+    charset        = None
     as_attachment  = False              # True: named file download
 
     # Add missing mimetypes, or override those in mimetypes module
@@ -52,12 +53,15 @@ class File(GET):
             self.headers.add_header('Cache-Control', self.cache_control)
         try:
             ext = os.path.splitext(self.fullpath)[-1].lstrip('.')
-            mimetype = self.MIMETYPES[ext]
+            contenttype = self.MIMETYPES[ext]
         except KeyError:
-            mimetype = mimetypes.guess_type(self.fullpath)[0]
-            if not mimetype:
-                mimetype = 'application/octet-stream'
-        self.headers.add_header('Content-Type', mimetype)
+            contenttype = mimetypes.guess_type(self.fullpath)[0]
+            if not contenttype:
+                contenttype = 'application/octet-stream'
+        charset = self.get_charset(request)
+        if charset:
+            contenttype += "; charset=%s" % charset
+        self.headers.add_header('Content-Type', contenttype)
         if self.as_attachment:
             filename = os.path.split(self.filepath)[1]
             self.headers.add_header('Content-Disposition',
@@ -74,6 +78,10 @@ class File(GET):
         if format:
             filepath += format
         return filepath
+
+    def get_charset(self, request):
+        "Return the character encoding, if any."
+        return self.charset
 
     def get_response(self, request):
         response = HTTP_OK_Static(**dict(self.headers))

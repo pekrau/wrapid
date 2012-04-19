@@ -176,6 +176,7 @@ application.add_resource('/input',
 class StaticFile(File):
     "Return the specified file from a predefined server directory."
     dirpath = os.path.dirname(__file__)
+    charset = 'utf-8'
 
 application.add_resource('/static/{filepath}',
                          name='File',
