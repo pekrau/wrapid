@@ -303,7 +303,11 @@ class FormHtmlMixin(object):
         formdata = self.data['form']
         fields = formdata['fields']
         values = formdata.get('values', dict())
-        required = self.get_icon('required') or 'required'
+        required = self.get_icon('required')
+        if required is None:
+            required = 'required'
+        else:                           # Boolean test misleading for IMG
+            required = str(required)
         multipart = False
         table = TABLE()
         for field in fields:

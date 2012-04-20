@@ -5,6 +5,7 @@ Various utility functions.
 
 import time
 import urllib
+import urlparse
 import unicodedata
 
 
@@ -66,7 +67,13 @@ def to_ascii(value):
 
 def url_build(*segments, **query):
     "Build a URL from the segments and the query."
-    url = '/'.join(map(str, segments))
+    base = segments[0]
+    tail = segments[1:]
+    if tail:
+        base = base.rstrip('/') + '/'
+        url = urlparse.urljoin(base, '/'.join(map(str, tail))).rstrip('/')
+    else:
+        url = base
     if query:
         items = dict([(k,v) for k,v in query.iteritems() if v is not None])
         return url + '?' + urllib.urlencode(items)
