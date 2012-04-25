@@ -245,7 +245,13 @@ class BaseHtmlRepresentation(Representation):
         if not outreprs: return ''
         table = TABLE(TR(TH('Alternative representations')))
         for outrepr in outreprs:
-            table.append(TR(TD(A(outrepr['title'], href=outrepr['href']))))
+            icon = self.get_icon(outrepr['title'].lower())
+            if icon:
+                table.append(TR(TD(A(icon,
+                                     outrepr['title'],
+                                     href=outrepr['href']))))
+            else:
+                table.append(TR(TD(A(outrepr['title'], href=outrepr['href']))))
         return table
 
     def get_footer(self):
@@ -303,11 +309,7 @@ class FormHtmlMixin(object):
         formdata = self.data['form']
         fields = formdata['fields']
         values = formdata.get('values', dict())
-        required = self.get_icon('required')
-        if required is None:
-            required = 'required'
-        else:                           # Boolean test misleading for IMG
-            required = str(required)
+        required = self.get_icon('required') or 'required'
         multipart = False
         table = TABLE()
         for field in fields:
@@ -367,7 +369,7 @@ class FormHtmlMixin(object):
         for key, value in params.iteritems():
             if value is not None:
                 kwargs[key] = value
-        for key in ['id', 'default', 'length', 'maxlength']:
+        for key in ['id', 'default', 'length', 'maxlength', 'rows', 'cols']:
             value = field.get(key)
             if value is not None:
                 kwargs[key] = value
