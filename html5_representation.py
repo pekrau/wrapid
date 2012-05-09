@@ -2,13 +2,13 @@
 
 Base class for HTML5 representation.
 
-XXX HTML5-specific elements not yet used...
+XXX Not yet in a usable state!
 """
 
 import cgi
 
 import markdown
-from HyperText.HTML5 import *
+from HTML5 import *
 
 from .representation import *
 from .utils import url_build

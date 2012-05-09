@@ -30,11 +30,9 @@ def now_time(format=TIME_ISO_FORMAT):
     return now(format=format)
 
 def rstr(value):
-    "Return str of unicode value, else same, recursively."
-    if value is None:
-        return None
-    elif isinstance(value, unicode):
-        return str(value)
+    "Return unicode value encoded using UTF-8, else same, recursively."
+    if isinstance(value, unicode):
+        return value.encode('utf-8', 'ignore')
     elif isinstance(value, list):
         return map(rstr, value)
     elif isinstance(value, tuple):
@@ -44,6 +42,25 @@ def rstr(value):
     elif isinstance(value, dict):
         return dict([(rstr(key), rstr(value))
                      for key, value in value.iteritems()])
+    else:
+        return value
+
+def runicode(value):
+    """Return string value decoded into unicode, else same, recursively.
+    Assumes strings use UTF-8 encoding."""
+    if isinstance(value, basestring):
+        if isinstance(value, unicode):
+            return value
+        else:
+            return unicode(value, 'utf-8')
+    elif isinstance(value, list):
+        return map(runicode, value)
+    elif isinstance(value, tuple):
+        return tuple(map(runicode, value))
+    elif isinstance(value, set):
+        return set(map(runicode, value))
+    elif isinstance(value, dict):
+        return dict([(runicode(k), runicode(v)) for k, v in value.iteritems()])
     else:
         return value
 

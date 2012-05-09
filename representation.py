@@ -12,8 +12,8 @@ class Representation(object):
     "Output representation generator for a specified mimetype."
 
     mimetype = None
-    charset = None
     format = None
+    charset = None
     cache_control = 'max-age=3600'
 
     def __init__(self, descr=None):

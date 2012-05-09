@@ -106,25 +106,28 @@ form .descr { font-style: italic; }
               font-weight: bold;
               margin: 0 0 0.25em 2em; }
 
-.doc tr th {text-align: left;
-            border-width: 2px;
-            border-top-style: solid;
-            border-bottom-style: solid;
-            padding-left: 0.5em; }
+.doc th {text-align: left;
+         border-width: 2px;
+         border-top-style: solid;
+         border-bottom-style: solid;
+         padding-left: 0.5em; }
 
-.doc tr td {border-width: 1px;
-            border-bottom-style: solid;
-            padding-left: 0.5em; }
+.doc td {border-width: 1px;
+         border-bottom-style: solid;
+         padding-left: 0.5em; }
 
-.doc table td table {margin: 0;
-                     padding: 0;
+.doc table td p {padding: 0;
+                 margin: 0; }
+
+.doc table td table {padding: 0;
+                     margin: 0;
                      border-width: 0; }
-.doc table td table th {margin: 0;
-                        padding: 0;
+.doc table td table th {padding: 0;
+                        margin: 0;
                         border-top-style: none;
                         border-width: 1px; }
-.doc table td table td {margin: 0;
-                        padding: 0 2px;
+.doc table td table td {padding: 0 2px;
+                        margin: 0;
                         border-width: 0; }
 
 table.output tr th {vertical-align: top;

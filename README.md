@@ -5,6 +5,7 @@
 - Provides basis for a well-organized API uniform for all representations,
   including HTML for human browsers, and JSON and other content types
   for programmatic access.
+- HTML output generation classes (derived from the HyperText module).
 - Predefined class for HTML representation in a standard page layout.
 - Built-in support to produce documentation of the API by introspection.
 - Agnostic as to back-end storage; no Object-Relational Manager (ORM),
@@ -32,9 +33,6 @@ packages are needed:
 
 - [https://github.com/pekrau/wrapid](https://github.com/pekrau/wrapid):
  Source code for the wrapid framework.
-- [https://github.com/pekrau/hypertext](https://github.com/pekrau/hypertext):
-  Package **HyperText** for producing the HTML of the web service interface,
-  which is used by the HTML representation class in the wrapid framework.
 - [http://pypi.python.org/pypi/Markdown](http://pypi.python.org/pypi/Markdown):
   Package **Markdown** for producing HTML from text using the simple markup
   language [Markdown](http://daringfireball.net/projects/markdown/).

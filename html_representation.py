@@ -6,8 +6,8 @@ Base class for standard HTML 4.0 representation.
 import cgi
 
 import markdown
-from HyperText.HTML40 import *
 
+from .HTML4 import *
 from .representation import *
 from .utils import url_build
 
@@ -16,8 +16,8 @@ class BaseHtmlRepresentation(Representation):
     "Base standard HTML representation of the resource."
 
     mimetype = 'text/html'
-    charset = 'utf-8'
     format = 'html'
+    charset = ENCODING
 
     logo = None                         # Relative URL
     favicon = None                      # Relative URL
@@ -61,7 +61,7 @@ class BaseHtmlRepresentation(Representation):
                          self.get_footer(),
                          self.get_scripts()))
         response = HTTP_OK(**self.get_http_headers())
-        response.append(str(DOCTYPE) + '\n')
+        response.append(DOCTYPE + '\n')
         response.append(html)
         return response
 
@@ -98,6 +98,8 @@ class BaseHtmlRepresentation(Representation):
 
     def get_head(self):
         head = HEAD(TITLE(self.get_title()),
+                    META(http_equiv='Content-Type',
+                         content="%s; charset=%s" % (self.mimetype, ENCODING)),
                     META(http_equiv='Content-Script-Type',
                          content='application/javascript'))
         if isinstance(self.stylesheets, str):

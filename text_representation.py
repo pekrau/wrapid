@@ -6,6 +6,7 @@ Text representation using Python 'pprint'.
 import pprint
 
 from .representation import *
+from .utils import rstr
 
 
 class TextRepresentation(Representation):
@@ -17,5 +18,5 @@ class TextRepresentation(Representation):
 
     def __call__(self, data):
         response = HTTP_OK(**self.get_http_headers())
-        response.append(pprint.pformat(data, indent=2))
+        response.append(pprint.pformat(rstr(data), indent=2))
         return response

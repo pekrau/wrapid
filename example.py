@@ -91,7 +91,7 @@ class GET_Input(MethodMixin, GET):
     fields = (SelectField('delimiter',
                           required=True,
                           options=['tab', 'comma'],
-                          default='tab',
+                          default='comma',
                           boxes=True),
               TextField('text', required=True,
                         descr='Delimited text for table.'))
