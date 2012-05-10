@@ -28,9 +28,10 @@ class LoginMixin(object):
         """Set the attribute 'login' account dictionary from
         the Basic Authentication in the request.
         Raise HTTP_UNAUTHORIZED_BASIC_CHALLENGE if no account specified,
-        and anonymous login is disallowed.
-        Raise HTTP_FORBIDDEN if no such account or wrong password.
+        and anonymous login is disallowed, or if wrong password.
+        XXX Should there be a delay when wrong password given?
         """
+        appname = request.application.name
         try:
             name, password = decode_authorization_header(request)
         except ValueError:
@@ -38,7 +39,6 @@ class LoginMixin(object):
             # human browsers: For some pages in the site (notably
             # the application root '/'), the authentication data
             # does not seem to be sent voluntarily by the browser.
-            appname = request.application.name
             if request.cookie.has_key("%s-login" % appname):
                 raise HTTP_UNAUTHORIZED_BASIC_CHALLENGE(realm=appname)
             else:
@@ -50,7 +50,7 @@ class LoginMixin(object):
             try:
                 self.login = self.get_account(name, password)
             except (KeyError, ValueError):
-                raise HTTP_FORBIDDEN('invalid account or password')
+                raise HTTP_UNAUTHORIZED_BASIC_CHALLENGE(realm=appname)
 
     def get_account(self, name, password=None):
         """Return a dictionary describing the account:
