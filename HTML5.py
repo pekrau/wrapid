@@ -153,36 +153,33 @@ class Element(object):
 
     def __unicode__(self, indent=0, perlevel=2):
         if indent:
-            myindent = (perlevel and u'\n' or u'') + u' '*indent
+            result = [(perlevel and u'\n' or u'') + u' '*indent]
         else:
-            myindent = u''
-	s = [myindent, self.start_tag()]
-	for c in self.content:
-	    try:
-                s.append(apply(c.__unicode__, (indent+perlevel, perlevel)))
-	    except:
-                s.append(unicode(c))
-	s.append(self.end_tag())
-	return u''.join(s)
-
-    def start_tag(self):
+            result = [u'']
         attrs = []
         for key in self.dict:
             if self.attrlist.get(key, True):
-                attrs.append(u'%s="%s"' %
-                             (self.attr_translations.get(key, key), self[key]))
+                name = self.attr_translations.get(key, key)
+                attrs.append(u'%s="%s"' % (name, self[key]))
             else:
                 attrs.append(self[key] and key or u'')
         if attrs:
-            return u"<%s %s>" % (self.name, u' '.join(attrs))
+            result.append(u"<%s %s>" % (self.name, u' '.join(attrs)))
         else:
-            return u"<%s>" % (self.name)
-
-    def end_tag(self):
+            result.append(u"<%s>" % (self.name))
+	for c in self.content:
+	    try:
+                result.append(c.__unicode__(indent+perlevel, perlevel))
+	    except:
+                if isinstance(c, str):
+                    result.append(unicode(c, ENCODING))
+                elif isinstance(c, unicode):
+                    result.append(c)
+                else:
+                    result.append(unicode(c))
         if self.allow_content:
-            return u"</%s>" % self.name
-        else:
-            return ''
+            result.append(u"</%s>" % self.name)
+	return u''.join(result)
 
     def update(self, d): 
 	for k, v in d.iteritems():
@@ -198,6 +195,9 @@ class Element(object):
 class HTML(Element):
     attrlist = dict(manifest=1)
     attrlist.update(Element.attrlist)
+    def __str__(self, indent=0, perlevel=2):
+        return DOCTYPE + '\n' + super(HTML, self).__str__(indent=indent,
+                                                          perlevel=perlevel)
 
 class HEAD(Element): pass
 
@@ -542,7 +542,6 @@ if __name__ == '__main__':
     import codecs
     swedish = codecs.open('swedish.txt', 'r', 'utf-8').read()
     title = swedish.split('\n')[0]
-    print DOCTYPE
     print HTML(HEAD(META(charset=ENCODING),
                     TITLE(title)),
                BODY(H1(title, klass='stuff'),
@@ -553,4 +552,5 @@ if __name__ == '__main__':
                          action='doit.html'),
                     TABLE(TR(TH('Header')),
                           TR(TD('Cell')),
-                          klass="main")))
+                          klass="main")),
+               lang='sv')

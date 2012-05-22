@@ -139,6 +139,10 @@ class BaseHtmlRepresentation(Representation):
         for link in self.data.get('links', []):
             title = link['title']
             try:
+                count = " (%s)" % link['count']
+            except KeyError:
+                count = ''
+            try:
                 section, name = title.split(':', 1)
             except ValueError:
                 if items:
@@ -148,14 +152,14 @@ class BaseHtmlRepresentation(Representation):
                         table.append(TR(TD(UL(*items))))
                         current_section = None
                     items = []
-                table.append(TR(TD(A(title, href=link['href']))))
+                table.append(TR(TD(A(title, href=link['href']), count)))
             else:
                 if current_section != section:
                     if current_section and items:
                         table.append(TR(TD(current_section, UL(*items))))
                     items = []
                     current_section = section
-                items.append(LI(A(name, href=link['href'])))
+                items.append(LI(A(name, href=link['href']), count))
         if items:
             table.append(TR(TD(current_section, UL(*items))))
         return table
