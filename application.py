@@ -43,7 +43,9 @@ class Application(object):
     def __call__(self, environ, start_response):
         "WSGI interface; this method is called for each HTTP request."
         self.url = wsgiref.util.application_uri(environ)
+        logging.debug("wrapid. Application URL %s", self.url)
         self.path = urlparse.urlparse(self.url).path
+        logging.debug("wrapid: Application path %s", self.path)
         request = Request(environ)
         request.application = self
         logging.debug("wrapid: HTTP method '%s', URL path '%s'",

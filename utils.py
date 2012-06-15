@@ -79,7 +79,8 @@ def to_bool(value):
 
 def to_ascii(value):
     "Convert any non-ASCII character to its closest equivalent."
-    value = unicode(value)
+    if not isinstance(value, unicode):
+        value = unicode(value, 'utf-8')
     return unicodedata.normalize('NFKD', value).encode('ascii', 'ignore')
 
 def url_build(*segments, **query):
