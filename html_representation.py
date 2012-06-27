@@ -120,14 +120,12 @@ class BaseHtmlRepresentation(Representation):
         return self.data['title']
 
     def get_logo(self):
+        name = self.data['application'].get('name', 'wrapid')
         if self.logo:
-            return A(IMG(src=self.get_url(self.logo),
-                         alt=self.data['application']['name'],
-                         title=self.data['application']['name']),
-                     href=self.data['application']['href'])
+            content = IMG(src=self.get_url(self.logo), alt=name, title=name)
         else:
-            return A(SPAN('wrapid', style='font-size: xx-large; color: green;'),
-                     href=self.data['application']['href'])
+            content = SPAN(name)
+        return A(content, href=self.data['application']['href'])
 
     def get_descr(self):
         return self.to_html(self.data.get('descr'))

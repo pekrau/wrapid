@@ -49,6 +49,9 @@ table tr td {vertical-align: top; }
 
 .login {white-space: nowrap;}
 
+.logo a span {font-size: xx-large;
+              color: green; }
+
 .icon img { vertical-align: middle; }
 .icon span { vertical-align: middle;
              padding-left: 0.5em; }
