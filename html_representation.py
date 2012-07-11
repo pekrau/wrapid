@@ -136,6 +136,7 @@ class BaseHtmlRepresentation(Representation):
         items = []
         for link in self.data.get('links', []):
             title = link['title']
+            image = link.get('image')
             try:
                 count = " (%s)" % link['count']
             except KeyError:
@@ -150,14 +151,24 @@ class BaseHtmlRepresentation(Representation):
                         table.append(TR(TD(UL(*items))))
                         current_section = None
                     items = []
-                table.append(TR(TD(A(title, href=link['href']), count)))
+                if image:
+                    content = IMG(src=image, title=title, alt=title)
+                else:
+                    content = title
+                    if count: content += count
+                table.append(TR(TD(A(content, href=link['href']))))
             else:
                 if current_section != section:
                     if current_section and items:
                         table.append(TR(TD(current_section, UL(*items))))
                     items = []
                     current_section = section
-                items.append(LI(A(name, href=link['href']), count))
+                if image:
+                    content = IMG(src=image, title=name, alt=name)
+                else:
+                    content = name
+                    if count: content += count
+                items.append(LI(A(content, href=link['href'])))
         if items:
             table.append(TR(TD(current_section, UL(*items))))
         return table

@@ -102,7 +102,12 @@ class Element(object):
         for key in self.dict:
             if self.attrlist.get(key, True):
                 name = self.attr_translations.get(key, key)
-                attrs.append(u'%s="%s"' % (name, self[key]))
+                value = self[key]
+                if isinstance(value, str):
+                    value = unicode(value, ENCODING)
+                else:
+                    value = str(value)
+                attrs.append(u'%s="%s"' % (name, value))
             else:
                 attrs.append(self[key] and key or u'')
         if attrs:
