@@ -1,4 +1,4 @@
-""" wrapid: Web Resource API server framework built on Python WSGI.
+""" wrapid: Micro framework built on Python WSGI for RESTful server APIs
 
 Interface to a wrapid-style web resource, using JSON as default representation.
 """

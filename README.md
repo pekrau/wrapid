@@ -1,5 +1,5 @@
- wrapid: Web Resource API server micro-framework built on Python WSGI
----------------------------------------------------------------------
+wrapid: Micro framework built on Python WSGI for RESTful server APIs
+--------------------------------------------------------------------
 
 - Designed for a RESTful resource-oriented architecture.
 - Provides the basis for a well-organized API uniform for all representations,
