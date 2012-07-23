@@ -10,6 +10,7 @@ import urlparse
 import traceback
 import wsgiref.util
 import wsgiref.headers
+import json
 
 from .request import *
 from .responses import *
@@ -77,6 +78,21 @@ class Application(object):
                     response = method().respond(request)
                 else:
                     raise ValueError('invalid HTTP request method handler')
+                # Shortcut: If dict, then return as JSON representation
+                if isinstance(response, dict):
+                    data = json.dumps(response, indent=2)
+                    response = HTTP_OK(content_type='application/json; charset=utf-8')
+                    response.append(data)
+                # Shortcut: If string, then either HTML or plain text
+                elif isinstance(response, str):
+                    data = response
+                    # If first char '<', then HTML
+                    if data[0] == '<':
+                        response = HTTP_OK(content_type='text/html')
+                    # If first char not '<', then plain text
+                    else:
+                        response = HTTP_OK(content_type='text/plain')
+                    response.append(data)
                 return response(start_response)
             finally:
                 self.finalize(request)
@@ -118,7 +134,9 @@ class Application(object):
 
     def add_resource(self, url_template, name=None, descr=None, **methods):
         "Define the HTTP method handlers for the given URL template."
-        self.resources.append(Resource(url_template, name=name, descr=descr,
+        self.resources.append(Resource(url_template,
+                                       name=name,
+                                       descr=descr,
                                        **methods))
 
     def get_url(self, *segments, **query):

@@ -26,7 +26,13 @@ class MethodMixin(object):
 
     def get_data_links(self, request):
         "Return the links data for the response."
-        return [dict(title='Debug',
+        return [dict(title='Text',
+                     href=request.application.get_url('text')),
+                dict(title='HTML',
+                     href=request.application.get_url('html')),
+                dict(title='JSON',
+                     href=request.application.get_url('json')),
+                dict(title='Debug',
                      href=request.application.get_url('debug')),
                 dict(title='Crash',
                      href=request.application.get_url('crash')),
@@ -134,6 +140,30 @@ class POST_Input(MethodMixin, POST):
                               quit=request.application.url))
 
 
+def text(request):
+    """Simplest possible way of outputting plain text.
+    The first character cannot be a '<', else it will
+    be output as HTML."""
+    return 'This is some plain text.'
+
+def html(request):
+    """Simplest possible way of outputting HTML.
+    The first character must be a '<' for the string
+    to be output as HTML."""
+    return '''<!doctype html>
+<meta charset=utf-8>
+<h1>HTML</h1>
+<p>This is some HTML5 text.</p>'''
+
+def json(request):
+    """Simplest possible way of outputting JSON.
+    The returned value must be a dictionary containing
+    only predefined Python data types."""
+    return dict(title='JSON data',
+                something='Some data',
+                integers=[1, -3, 10945],
+                lookup={'thingy': 'stuff'})
+
 def debug(request):
     "Return information about the request data. Function for HTTP method."
     response = HTTP_OK(content_type='text/plain')
@@ -166,6 +196,9 @@ application = Application(name='Wrapid example',
 
 
 application.add_resource('/', name='Home', GET=Home)
+application.add_resource('/text', name='Text', GET=text)
+application.add_resource('/html', name='HTML', GET=html)
+application.add_resource('/json', name='JSON', GET=json)
 application.add_resource('/debug', name='Debug', GET=debug)
 application.add_resource('/crash', name='Crash', GET=crash)
 application.add_resource('/input',

@@ -1,11 +1,10 @@
- wrapid: Web Resource API server framework built on Python WSGI
----------------------------------------------------------------
+ wrapid: Web Resource API server micro-framework built on Python WSGI
+---------------------------------------------------------------------
 
 - Designed for a RESTful resource-oriented architecture.
-- Provides basis for a well-organized API uniform for all representations,
-  including HTML for human browsers, and JSON and other content types
-  for programmatic access.
-- HTML output generation classes (derived from the HyperText module).
+- Provides the basis for a well-organized API uniform for all representations,
+  including HTML for human browsers, and JSON for programmatic access.
+- Includes HTML output generation classes (derived from the HyperText module).
 - Predefined class for HTML representation in a standard page layout.
 - Built-in support to produce documentation of the API by introspection.
 - Agnostic as to back-end storage; no Object-Relational Manager (ORM),

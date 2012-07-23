@@ -120,7 +120,7 @@ class BaseHtmlRepresentation(Representation):
         return self.data['title']
 
     def get_logo(self):
-        name = self.data['application'].get('name', 'wrapid')
+        name = self.data['application']['name']
         if self.logo:
             content = IMG(src=self.get_url(self.logo), alt=name, title=name)
         else:

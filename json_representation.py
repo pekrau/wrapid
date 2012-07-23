@@ -14,8 +14,9 @@ class JsonRepresentation(Representation):
     mimetype = 'application/json'
     charset = 'utf-8'
     format = 'json'
+    indent = 2
 
     def __call__(self, data):
         response = HTTP_OK(**self.get_http_headers())
-        response.append(json.dumps(data, indent=2))
+        response.append(json.dumps(data, indent=self.indent))
         return response
