@@ -52,8 +52,8 @@ class HomeHtmlRepresentation(BaseHtmlRepresentation):
 class Home(MethodMixin, GET):
     "Home page for the web application."
 
-    outreprs = [TextRepresentation,
-                JsonRepresentation,
+    outreprs = [JsonRepresentation,
+                TextRepresentation,
                 HomeHtmlRepresentation]
 
     def get_data_resource(self, request):
@@ -62,13 +62,13 @@ class Home(MethodMixin, GET):
             dirpath = os.path.dirname(__file__)
             descr = open(os.path.join(dirpath, 'README.md')).read()
         except IOError:
-            descr = 'Error: Could not find the wrapid README.rd file.'
+            return dict(descr='Error: Could not find the README.rd file.',
+                        resource='Home')
         else:
             descr = descr.split('\n')
-            title = descr.pop(0)
-            descr = '\n'.join(descr[2:])
-        return dict(title=title,
-                    descr=descr)
+            return dict(title=descr[0],
+                        resource='Home',
+                        descr='\n'.join(descr[3:]))
 
 
 class ApiDocumentationHtmlRepresentation(ApiDocumentationHtmlMixin,
