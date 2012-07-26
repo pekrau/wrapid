@@ -123,10 +123,11 @@ class OutreprsMethodMixin(object):
 
     def get_data(self, request):
         "Return the response data dictionary."
-        data               = self.get_data_general(request)
-        data['links']      = self.get_data_links(request)
-        data['operations'] = self.get_data_operations(request)
-        data['outreprs']   = self.get_data_outreprs(request)
+        data                  = self.get_data_general(request)
+        data['links']         = self.get_data_links(request)
+        data['documentation'] = self.get_data_documentation(request)
+        data['operations']    = self.get_data_operations(request)
+        data['outreprs']      = self.get_data_outreprs(request)
         data.update(self.get_data_resource(request))
         return data
 
@@ -150,15 +151,19 @@ class OutreprsMethodMixin(object):
         return data
 
     def get_data_links(self, request):
-        "Return the links response data."
+        "Return the navigation links data."
+        return []
+
+    def get_data_documentation(self, request):
+        "Return the documentation links data."
         return []
 
     def get_data_operations(self, request):
-        "Return the operations response data."
+        "Return the operations links data."
         return []
 
     def get_data_outreprs(self, request):
-        "Return the outrepr links response data."
+        "Return the outrepr links data."
         url = request.url
         if url == request.application.url:
             url += '/'

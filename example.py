@@ -25,20 +25,23 @@ class MethodMixin(object):
     "Mixin class providing the links data for all HTTP method classes."
 
     def get_data_links(self, request):
-        "Return the links data for the response."
+        "Return the navigation links data."
         return [dict(title='Text',
                      href=request.application.get_url('text')),
                 dict(title='HTML',
                      href=request.application.get_url('html')),
                 dict(title='JSON',
                      href=request.application.get_url('json')),
-                dict(title='Debug',
-                     href=request.application.get_url('debug')),
-                dict(title='Crash',
-                     href=request.application.get_url('crash')),
                 dict(title='Input',
                      href=request.application.get_url('input')),
-                dict(title='Documentation: API',
+                dict(title='Crash',
+                     href=request.application.get_url('crash')),
+                dict(title='Debug',
+                     href=request.application.get_url('debug'))]
+
+    def get_data_documentation(self, request):
+        "Return the documentation links data."
+        return [dict(title='API',
                      href=request.application.get_url('doc'))]
 
 
@@ -60,7 +63,12 @@ class Home(MethodMixin, GET):
             descr = open(os.path.join(dirpath, 'README.md')).read()
         except IOError:
             descr = 'Error: Could not find the wrapid README.rd file.'
-        return dict(descr=descr)
+        else:
+            descr = descr.split('\n')
+            title = descr.pop(0)
+            descr = '\n'.join(descr[2:])
+        return dict(title=title,
+                    descr=descr)
 
 
 class ApiDocumentationHtmlRepresentation(ApiDocumentationHtmlMixin,
@@ -186,12 +194,8 @@ def crash(request):
     raise ValueError('explicitly forced error')
 
 
-application = Application(name='Wrapid example',
+application = Application(name='Wrapid',
                           version=wrapid.__version__,
-                          host=dict(title='web site',
-                                    href='http://localhost/',
-                                    admin='Administrator',
-                                    email='admin@dummy.xyz'),
                           debug=True)
 
 
@@ -199,12 +203,13 @@ application.add_resource('/', name='Home', GET=Home)
 application.add_resource('/text', name='Text', GET=text)
 application.add_resource('/html', name='HTML', GET=html)
 application.add_resource('/json', name='JSON', GET=json)
-application.add_resource('/debug', name='Debug', GET=debug)
-application.add_resource('/crash', name='Crash', GET=crash)
 application.add_resource('/input',
                          name='Input',
                          GET=GET_Input,
                          POST=POST_Input)
+application.add_resource('/crash', name='Crash', GET=crash)
+application.add_resource('/debug', name='Debug', GET=debug)
+
 
 class StaticFile(File):
     "Return the specified file from a predefined server directory."

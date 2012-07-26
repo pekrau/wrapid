@@ -46,6 +46,8 @@ class BaseHtmlRepresentation(Representation):
                                                  klass='search')),
                                            TR(TD(self.get_login(),
                                                  klass='login')),
+                                           TR(TD(self.get_documentation(),
+                                                 klass='documentation')),
                                            TR(TD(self.get_info(),
                                                  klass='info')),
                                            TR(TD(self.get_operations(),
@@ -134,7 +136,8 @@ class BaseHtmlRepresentation(Representation):
         table = TABLE()
         current_section = None
         items = []
-        for link in self.data.get('links', []):
+        links = self.data.get('links') or []
+        for link in links:
             title = link['title']
             image = link.get('image')
             try:
@@ -178,7 +181,8 @@ class BaseHtmlRepresentation(Representation):
 
     def get_operations(self):
         table = TABLE()
-        for operation in self.data.get('operations', []):
+        operations = self.data.get('operations') or []
+        for operation in operations:
             if isinstance(operation, basestring): # Not a dict, i.e. a dummy
                 table.append(TR(TD(operation, height=10)))
                 continue
@@ -247,6 +251,15 @@ class BaseHtmlRepresentation(Representation):
         else:
             return  DIV('Logged in as ',
                         A(login, href=self.get_url('account', login)))
+
+    def get_documentation(self):
+        table = TABLE(klass='documentation')
+        links = self.data.get('documentation') or []
+        if links:
+            table.append(TR(TH('Documentation')))
+        for link in links:
+            table.append(TR(TD(A(link['title'], href=link['href']))))
+        return table
 
     def get_info(self):
         return ''

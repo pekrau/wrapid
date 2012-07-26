@@ -1,4 +1,4 @@
-wrapid: Micro framework built on Python WSGI for RESTful server APIs
+Wrapid: Micro framework built on Python WSGI for RESTful server APIs
 --------------------------------------------------------------------
 
 - Designed for a RESTful resource-oriented architecture.
@@ -24,7 +24,7 @@ during any of the four phases.
 The source code distribution contains an example implementation 'example.py',
 which illustrates a few of the features. To install it, enable the mod_wsgi
 module in your Apache2 installation, and add the contents of the file
-'apache2.cnf' (supplied in the distribution) to your Apache2 configuration
+'apache2.cnf' (available in the distribution) to your Apache2 configuration
 file 'sites-available/default' (or similar).
 
 The wrapid framework is written in Python 2.6. The following source code
@@ -36,5 +36,6 @@ packages are needed:
   Package **Markdown** for producing HTML from text using the simple markup
   language [Markdown](http://daringfireball.net/projects/markdown/).
 
-An installation showing the example code can be viewed at
-[http://tools.scilifelab.se/wrapid](http://tools.scilifelab.se/wrapid).
+Of course, this web application is itself implemented using wrapid.
+The links in the navigation panel to the left show some example
+resources.

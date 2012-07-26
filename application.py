@@ -25,7 +25,7 @@ class Application(object):
     this class for all HTTP requests to the relevant URLs.
     """
 
-    # These should be modified in inheriting classes.
+    # Default values used if none are provided at instantiation.
     version = 'x'
     host    = dict(title='web site',
                    href='http://localhost/',

@@ -1,5 +1,0 @@
-Den första sidan.
-
-Detta är en svensk text, med de jobbiga bokstäverna Å, Ä och Ö.
-Och några fler konstiga tecken: ú, ü.
-För att test Unicode och UTF-8.
