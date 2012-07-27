@@ -105,6 +105,8 @@ class Element(object):
                 value = self[key]
                 if isinstance(value, str):
                     value = unicode(value, ENCODING)
+                elif isinstance(value, unicode):
+                    value = value
                 else:
                     value = str(value)
                 attrs.append(u'%s="%s"' % (name, value))
